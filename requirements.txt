@@ -17,7 +17,7 @@ openai==2.43.0
 # --- Document extraction & OCR ---
 pypdfium2==5.12.1
 pytesseract==0.3.13
-opencv-python==4.13.0.92
+opencv-python-headless==4.13.0.92   # headless: no libGL needed (Databricks clusters have none)
 numpy==2.4.6
 pillow==12.2.0
 openpyxl==3.1.5          # xlsx reading, and the corp_income.xlsx output

@@ -13,7 +13,25 @@ import openpyxl
 import xlrd
 from openpyxl.utils import get_column_letter
 
-from src.utils.reading.ocr import IMAGE_EXTENSIONS, ocr_image, ocr_pdf
+# Kept in sync with src/utils/reading/ocr.py. Defined here so importing this
+# module (and the supervisor) does not need OpenCV/Tesseract: they are loaded
+# only when a scan or photo actually has to be OCR'd.
+IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"})
+
+
+def _ocr_module():
+    """The OCR module, imported on first use, with an actionable error if it cannot load."""
+
+    try:
+        from src.utils.reading import ocr
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            f"OCR needs {exc.name!r}, which is not installed. Run "
+            "`%pip install -r requirements.txt` then `dbutils.library.restartPython()` "
+            "(the OpenCV package is opencv-python-headless). Digital PDFs, Word and "
+            "Excel files do not need OCR and are still read."
+        ) from exc
+    return ocr
 
 
 def _decode(raw: bytes) -> str:
@@ -833,9 +851,9 @@ def extract_document_text_with_method(
         layer = _pdf_text_layer(file_path)
         if layer is not None:
             return layer, "pdf_text_layer"
-        return ocr_pdf(file_path, timeout_seconds=ocr_timeout_seconds), "ocr_pdf"
+        return _ocr_module().ocr_pdf(file_path, timeout_seconds=ocr_timeout_seconds), "ocr_pdf"
     if extension in IMAGE_EXTENSIONS:
-        return ocr_image(file_path, timeout_seconds=ocr_timeout_seconds), "ocr_image"
+        return _ocr_module().ocr_image(file_path, timeout_seconds=ocr_timeout_seconds), "ocr_image"
     if extension == ".docx":
         return extract_docx_text(file_path), "docx"
     if extension == ".csv":

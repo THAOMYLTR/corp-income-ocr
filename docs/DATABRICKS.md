@@ -71,6 +71,7 @@ BRD item. Cell 10 saves everything to `OUTPUT_DIR/<testcase>_<time>/`.
 | `MODEL_… is not set` / `LLM_PROVIDER=… needs …` | Cell 3 — the named variable |
 | `401` / `authentication` | Wrong or expired key |
 | `404` / `not_found` | Wrong model or endpoint name, or base URL |
+| `No module named 'cv2'` (or another package) | Run the step 3 cell: `%pip install -r requirements.txt` **then** `dbutils.library.restartPython()`, and re-run from the top. OpenCV is `opencv-python-headless` |
 | `TesseractNotFoundError` | Init script not applied (step 2) |
 | Vietnamese OCR is gibberish | `tesseract-ocr-vie` missing (step 2) |
 | `skipped N file(s) under no upload box` | Put the files inside the box folders (step 5) |

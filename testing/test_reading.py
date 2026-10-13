@@ -95,3 +95,30 @@ class ReadingTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WithoutOpenCvTest(unittest.TestCase):
+    """A cluster without OpenCV must still import the pipeline and read non-scans."""
+
+    def test_pipeline_imports_and_reads_word_without_cv2(self):
+        import subprocess
+        import sys
+
+        code = (
+            "import sys; sys.modules['cv2'] = None\n"            # make `import cv2` fail
+            "from src.agents.supervisor import Supervisor\n"
+            "from src.utils.reading.extractors import extract_document_text_with_method as read\n"
+            "import docx, tempfile, os\n"
+            "d = docx.Document(); d.add_paragraph('THÔNG BÁO TIỀN THUẾ NỢ')\n"
+            "p = os.path.join(tempfile.mkdtemp(), 'x.docx'); d.save(p)\n"
+            "print(read(p)[1])\n"
+            "try:\n"
+            "    read(p.replace('x.docx', 'y.png'))\n"
+            "except ModuleNotFoundError as e:\n"
+            "    print('OCR-ERROR:', e)\n"
+        )
+        run = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                             env={**os.environ}, cwd=Path(__file__).resolve().parents[1])
+        self.assertEqual(run.returncode, 0, run.stderr[-2000:])
+        self.assertIn("docx", run.stdout)
+        self.assertIn("opencv-python-headless", run.stdout)
