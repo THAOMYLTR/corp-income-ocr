@@ -6,6 +6,7 @@ from langchain_core.messages import SystemMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
+from src.llm_errors import explain_llm_error
 from src.prompts import system_prompt as prompt_file
 from src.utils.common import normalize_text
 
@@ -76,7 +77,7 @@ def _explain(exc: Exception) -> str:
             "testing/probe_max_tokens.py to read the model's real ceiling. "
             f"API said: {text}"
         )[:500]
-    return f"{type(exc).__name__}: {text}"[:500]
+    return explain_llm_error(exc)
 
 
 def run_extraction(

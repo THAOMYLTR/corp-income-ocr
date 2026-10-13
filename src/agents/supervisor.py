@@ -24,6 +24,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import END, StateGraph
 
+from src.llm_errors import explain_llm_error
 from src.config import Config
 from src.prompts import system_prompt
 from src.types import (
@@ -689,7 +690,7 @@ class Supervisor:
                 return result
             except Exception as exc:
                 rule["classifier_error_type"] = type(exc).__name__
-                rule["classifier_error"] = str(exc)[:500]
+                rule["classifier_error"] = explain_llm_error(exc)
                 rule["reasoning"] = (
                     "Fallback keyword classification because document "
                     "classifier failed."

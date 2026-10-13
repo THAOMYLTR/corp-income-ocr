@@ -1,28 +1,52 @@
 """LLM client factory + runtime Config (extracted from the notebook).
 
 Same contract as the SME repo: ``build_llm("MODEL_PREMIUM")`` reads the model name
-from that environment variable and raises at startup if it is unset. One
-addition — ``LLM_PROVIDER`` picks how the model is reached:
+from that environment variable and raises at startup if it is unset.
+``LLM_PROVIDER`` picks how the model is reached:
 
-    LLM_PROVIDER=openai      (default) ChatOpenAI; OPENAI_API_KEY, OPENAI_API_BASE.
-                             Also any gateway that speaks the OpenAI format.
+    LLM_PROVIDER=openai      ChatOpenAI → api.openai.com, or any OpenAI-format
+                             gateway via OPENAI_API_BASE. Key: OPENAI_API_KEY.
     LLM_PROVIDER=anthropic   ChatAnthropic; ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL.
     LLM_PROVIDER=databricks  a Databricks model serving endpoint (OpenAI format);
                              DATABRICKS_HOST, DATABRICKS_TOKEN. MODEL_* = endpoint name.
+    LLM_PROVIDER=databricks_invocations
+                             the team's existing Databricks convention:
+                             {ANTHROPIC_API_BASE}/{model}/invocations, key from
+                             api_key= or OPENAI_API_KEY.
+
+LLM_PROVIDER unset → ``databricks_invocations`` when ANTHROPIC_API_BASE is set,
+otherwise ``openai``. ``api_key=`` (as the team notebooks pass it) overrides the
+key from the environment; ``thinking_budget`` is used by Anthropic models only.
 """
 
 import os
 from dataclasses import dataclass
 from typing import Any
 
-PROVIDERS = ("openai", "anthropic", "databricks")
+PROVIDERS = ("openai", "anthropic", "databricks", "databricks_invocations")
 
 # What each provider needs, so a missing value is named before any call is made.
-_REQUIRED_ENV = {
-    "openai": ("OPENAI_API_KEY",),
-    "anthropic": ("ANTHROPIC_API_KEY",),
-    "databricks": ("DATABRICKS_HOST", "DATABRICKS_TOKEN"),
+_KEY_ENV = {
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "databricks": "DATABRICKS_TOKEN",
+    "databricks_invocations": "OPENAI_API_KEY",
 }
+_URL_ENV = {
+    "databricks": "DATABRICKS_HOST",
+    "databricks_invocations": "ANTHROPIC_API_BASE",
+}
+
+
+def llm_provider() -> str:
+    """The provider in use, after the LLM_PROVIDER-unset default."""
+
+    provider = os.getenv("LLM_PROVIDER", "").strip().lower()
+    if not provider:
+        provider = "databricks_invocations" if os.getenv("ANTHROPIC_API_BASE") else "openai"
+    if provider not in PROVIDERS:
+        raise ValueError(f"LLM_PROVIDER={provider!r}; expected one of {PROVIDERS}")
+    return provider
 
 
 def _rate_limiter():
@@ -50,19 +74,24 @@ def build_llm(
     temperature: float = 0.1,
     timeout_env: str = "LLM_TIMEOUT_SECONDS",
     max_tokens_env: str = "LLM_MAX_TOKENS",
+    api_key: str | None = None,
+    thinking_budget: int = 0,
 ):
     """Build one chat client from environment variables."""
 
-    model = os.getenv(model_env, "")
+    model = os.getenv(model_env, "").strip()
     if not model:
         raise ValueError(
-            f"{model_env} is not set; add it to .env or point this pass at a "
-            f"variable that is"
+            f"{model_env} is not set — os.environ has no {model_env}. Set it in the "
+            f"notebook (os.environ[{model_env!r}] = ...) or in a file named exactly "
+            f"'.env' next to the notebook (not .env.example), then re-run cell 2"
         )
-    provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
-    if provider not in PROVIDERS:
-        raise ValueError(f"LLM_PROVIDER={provider!r}; expected one of {PROVIDERS}")
-    missing = [name for name in _REQUIRED_ENV[provider] if not os.getenv(name)]
+    provider = llm_provider()
+    key = api_key or os.getenv(_KEY_ENV[provider], "")
+    missing = [] if key else [_KEY_ENV[provider]]
+    url_env = _URL_ENV.get(provider)
+    if url_env and not os.getenv(url_env):
+        missing.append(url_env)
     if missing:
         raise ValueError(
             f"LLM_PROVIDER={provider} needs {', '.join(missing)} — set it in "
@@ -71,10 +100,11 @@ def build_llm(
 
     kwargs: dict[str, Any] = {
         "model": model,
-        "temperature": temperature,
+        "temperature": 1.0 if thinking_budget and provider == "anthropic" else temperature,
         "timeout": float(os.getenv(timeout_env, "60")),
         "max_retries": int(os.getenv("LLM_CLIENT_MAX_RETRIES", "1")),
         "max_tokens": int(os.getenv(max_tokens_env, "8192")),
+        "api_key": key,
     }
     limiter = _rate_limiter()
     if limiter is not None:
@@ -83,9 +113,10 @@ def build_llm(
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
 
-        kwargs["api_key"] = os.getenv("ANTHROPIC_API_KEY")
         if os.getenv("ANTHROPIC_BASE_URL"):
             kwargs["base_url"] = os.getenv("ANTHROPIC_BASE_URL")
+        if thinking_budget:
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
         return ChatAnthropic(**kwargs)
 
     from langchain_openai import ChatOpenAI
@@ -94,11 +125,30 @@ def build_llm(
         host = os.getenv("DATABRICKS_HOST", "").rstrip("/")
         if not host.startswith("http"):
             host = "https://" + host
+        return ChatOpenAI(**kwargs, base_url=f"{host}/serving-endpoints")
+
+    if provider == "databricks_invocations":
+        import httpx
+
+        def _rewrite_url(request: httpx.Request) -> None:
+            url = str(request.url)
+            if "/chat/completions" in url:
+                request.url = httpx.URL(url.replace("/chat/completions", "/invocations"))
+
+        base = os.getenv("ANTHROPIC_API_BASE", "").rstrip("/")
+        if not base.startswith("http"):
+            base = "https://" + base
+        if thinking_budget:
+            kwargs["model_kwargs"] = {
+                "thinking": {"type": "enabled", "budget_tokens": thinking_budget}
+            }
+            kwargs["temperature"] = 1.0
         return ChatOpenAI(
             **kwargs,
-            api_key=os.getenv("DATABRICKS_TOKEN"),
-            base_url=f"{host}/serving-endpoints",
+            base_url=f"{base}/{model}",
+            http_client=httpx.Client(event_hooks={"request": [_rewrite_url]}),
         )
+
     return ChatOpenAI(**kwargs, base_url=os.getenv("OPENAI_API_BASE") or None)
 
 

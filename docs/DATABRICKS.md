@@ -68,6 +68,9 @@ BRD item. Cell 10 saves everything to `OUTPUT_DIR/<testcase>_<time>/`.
 
 | Message | Fix |
 |---|---|
+| Anything about the model | Run the **`check_llm_setup(config)`** cell: it shows which settings are set (keys masked), whether `.env` exists, and the **root cause** of a failed call with the fix |
+| `MODEL_… is not set` but it is in `.env.example` | `.env.example` is never read — the file must be named `.env`, or set `os.environ[...]` in cell 3 (after any `restartPython()`) |
+| `Connection error.` | Only a wrapper; the check cell prints the cause behind it (DNS, firewall, certificate, proxy) |
 | `MODEL_… is not set` / `LLM_PROVIDER=… needs …` | Cell 3 — the named variable |
 | `401` / `authentication` | Wrong or expired key |
 | `404` / `not_found` | Wrong model or endpoint name, or base URL |
