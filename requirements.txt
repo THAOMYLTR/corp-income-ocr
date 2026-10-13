@@ -1,24 +1,45 @@
-# corp-income-ocr — Python dependencies
-# Databricks: %pip install -r requirements.txt   (first notebook cell)
-# System dependency (not pip): Tesseract OCR with Vietnamese — see scripts/install_tesseract.sh
+# Corp Income — Python dependencies (same stack as the SME repo)
+# Install: pip install -r requirements.txt
+# System requirements (not pip):
+#   - Tesseract OCR — see README.md
+#   - WeasyPrint native libs (Pango/Cairo/GLib), for PDF export:
+#     macOS:  brew install pango cairo glib
+#     Debian: apt-get install libpango-1.0-0 libcairo2 libgdk-pixbuf2.0-0
 
-# --- LLM (only the provider you use is imported) ---
-langchain-core>=0.3
-langchain-anthropic>=0.3     # LLM_PROVIDER=anthropic
-langchain-openai>=0.3        # LLM_PROVIDER=openai or databricks
+# --- Agent framework ---
+langgraph==1.2.6
+langchain==1.3.11
+langchain-core==1.4.8
+langchain-openai==1.3.2
+langchain-anthropic>=1.0     # only when LLM_PROVIDER=anthropic
+openai==2.43.0
 
-# --- Reading files & OCR ---
-pypdfium2>=4.30              # PDF text layer + page rendering (no poppler needed)
-pytesseract>=0.3.10
-opencv-python-headless>=4.9  # headless: no GUI libraries needed on a cluster
-numpy>=1.26
-pillow>=10.0
-python-docx>=1.1             # .docx
-openpyxl>=3.1                # .xlsx in and the Excel output
-pandas>=2.0
-xlrd>=2.0                    # legacy .xls
-python-pptx>=1.0             # .pptx
+# --- Document extraction & OCR ---
+pypdfium2==5.12.1
+pytesseract==0.3.13
+opencv-python==4.13.0.92
+numpy==2.4.6
+pillow==12.2.0
+openpyxl==3.1.5          # xlsx reading, and the corp_income.xlsx output
+xlrd==2.0.2              # binary .xls (BIFF) reading, direct
+python-pptx==1.0.2       # pptx reading (src/utils/reading/extractors.py)
+python-docx>=1.1          # .docx reading (corporate papers often arrive as Word)
+markdown==3.10.3         # Markdown -> HTML for PDF export
+weasyprint==69.0         # HTML -> PDF (needs Pango/Cairo/GLib, see above)
 
-# --- Config ---
-pyyaml>=6.0
-python-dotenv>=1.0           # optional .env when running outside Databricks
+# --- Configuration ---
+pyyaml==6.0.3            # src/agents/documents/document_matrix.yaml
+
+# --- Runtime / notebook ---
+python-dotenv==1.2.2
+nest-asyncio==1.6.0
+ipython==9.14.1
+# Strips notebook outputs on commit so customer data from a real run never
+# reaches the repository. Needs a one-time `nbstripout --install` per clone —
+# see README, "Notebook outputs".
+nbstripout==0.9.1
+
+# --- Optional ---
+# No code imports this: LangChain picks the tracer up from LANGSMITH_TRACING /
+# LANGSMITH_API_KEY on its own. Drop the line if you do not trace.
+langsmith==0.8.18
