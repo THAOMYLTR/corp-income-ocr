@@ -1,0 +1,24 @@
+# corp-income-ocr — Python dependencies
+# Databricks: %pip install -r requirements.txt   (first notebook cell)
+# System dependency (not pip): Tesseract OCR with Vietnamese — see scripts/install_tesseract.sh
+
+# --- LLM (only the provider you use is imported) ---
+langchain-core>=0.3
+langchain-anthropic>=0.3     # LLM_PROVIDER=anthropic
+langchain-openai>=0.3        # LLM_PROVIDER=openai or databricks
+
+# --- Reading files & OCR ---
+pypdfium2>=4.30              # PDF text layer + page rendering (no poppler needed)
+pytesseract>=0.3.10
+opencv-python-headless>=4.9  # headless: no GUI libraries needed on a cluster
+numpy>=1.26
+pillow>=10.0
+python-docx>=1.1             # .docx
+openpyxl>=3.1                # .xlsx in and the Excel output
+pandas>=2.0
+xlrd>=2.0                    # legacy .xls
+python-pptx>=1.0             # .pptx
+
+# --- Config ---
+pyyaml>=6.0
+python-dotenv>=1.0           # optional .env when running outside Databricks

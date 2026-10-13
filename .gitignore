@@ -1,0 +1,22 @@
+# Customer data and run outputs never go to git
+samples/
+logs/
+output/
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.tif
+*.tiff
+*.docx
+*.xlsx
+
+# Secrets
+.env
+
+# Python / notebooks
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+!docs/*.xlsx
