@@ -268,6 +268,41 @@ groups:
           - "bao cao kiem toan doc lap"
           - "no tiem tang"
 
+      - id: bao_cao_tai_chinh
+        stt: "II.4"
+        short_label: "Báo cáo tài chính"
+        label: "Báo cáo tài chính năm (bảng cân đối kế toán, kết quả kinh doanh)"
+        requirement:
+          cap_moi: ""
+        # Mục 4 reads it only for taxes/social insurance payable; a full audited
+        # BCTC with notes still matches thuyet_minh_bctc first (content keywords).
+        agents:
+          CORP_INCOME_AGENT: O
+        source: customer
+        liabilities_extraction: true
+        filename_keywords:
+          - "bctc"
+        keywords:
+          - "bao cao tai chinh"
+          - "bang can doi ke toan"
+          - "ket qua hoat dong kinh doanh"
+
+      - id: to_khai_vat
+        stt: "II.5"
+        short_label: "Tờ khai thuế GTGT"
+        label: "Tờ khai thuế giá trị gia tăng (tháng / quý)"
+        requirement:
+          cap_moi: ""
+        # Recognised so it is named correctly; BRD items 1-4 read nothing from it.
+        agents: {}
+        source: customer
+        filename_keywords:
+          - "vat"
+          - "gtgt"
+        keywords:
+          - "to khai thue gia tri gia tang"
+          - "thue gia tri gia tang"
+
   # ===========================================================================
   - id: ho_so_vay_von
     stt: "III"
@@ -412,6 +447,25 @@ groups:
           - "bien ban lam viec"
           - "site visit"
           - "tham dinh thuc te"
+
+      - id: hinh_anh_thuc_dia
+        stt: "VI.2"
+        short_label: "Hình ảnh thực địa"
+        label: "Hình ảnh trụ sở / nhà xưởng / biển hiệu chụp khi đi thực địa"
+        requirement:
+          cap_moi: ""
+        # Recognised so it is named correctly; photos alone do not confirm
+        # operation, so no BRD item reads them (the field report does).
+        agents: {}
+        source: field
+        filename_keywords:
+          - "hinh anh"
+          - "anh chup"
+          - "photo"
+        keywords:
+          - "hinh anh tru so"
+          - "hinh anh thuc te"
+          - "anh chup thuc dia"
 
   # ===========================================================================
   - id: ho_so_khac
