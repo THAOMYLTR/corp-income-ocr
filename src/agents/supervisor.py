@@ -52,6 +52,7 @@ from src.agents.documents.document_matrix import (
     agent_relevance_for_type,
     get_type,
     is_catch_all_box,
+    is_financial_type,
     is_legal_basic_type,
     is_legal_rep_type,
     is_liabilities_type,
@@ -76,6 +77,10 @@ from src.agents.extraction.legal_rep_extraction import (
 from src.agents.extraction.liabilities_extraction import (
     build_liabilities_extraction_chain,
     extract_liabilities_structured_data,
+)
+from src.agents.extraction.financial_extraction import (
+    build_financial_extraction_chain,
+    extract_financial_structured_data,
 )
 from src.agents.specialist import SPECIALIST_BY_AGENT
 
@@ -154,6 +159,16 @@ EXTRACTION_PASSES: tuple[ExtractionPass, ...] = (
         llm_attr="liabilities_extraction_llm",
         build_chain=build_liabilities_extraction_chain,
         extract=extract_liabilities_structured_data,
+    ),
+    ExtractionPass(
+        label="Tài chính - BCTC",
+        tag="M5",
+        flag_attr="is_financial",
+        result_attr="financial_extraction",
+        error_attr="financial_extraction_error",
+        llm_attr="financial_extraction_llm",
+        build_chain=build_financial_extraction_chain,
+        extract=extract_financial_structured_data,
     ),
 )
 
@@ -440,7 +455,7 @@ class Supervisor:
 
         steps = state.get("steps", [])
         steps.append("Running CORP_INCOME_AGENT")
-        agent = SPECIALIST_BY_AGENT[DEFAULT_ROUTE]()
+        agent = SPECIALIST_BY_AGENT[DEFAULT_ROUTE](self.config.report_writer_llm)
         try:
             analysis = agent.analyze(
                 state.get("documents") or [],
@@ -464,11 +479,15 @@ class Supervisor:
 
         for number, item in analysis["items"].items():
             steps.append(f"Mục {number}: {item['conclusion']}")
-        if analysis["meta"]["unknown_placeholders"]:
-            steps.append(
-                "WARNING: unknown template placeholder(s) rendered as '—': "
-                + ", ".join(analysis["meta"]["unknown_placeholders"])
-            )
+        meta = analysis["meta"]
+        steps.append(
+            f"Template: {len(meta['code_placeholders'])} ô điền từ hồ sơ/tính toán, "
+            f"{len(meta['llm_placeholders'])} ô do LLM viết (nhận xét, HĐKD, CIC, kết luận)"
+        )
+        for warning in analysis["financials"]["warnings"]:
+            steps.append(f"Tài chính: {warning}")
+        if meta["writer_error"]:
+            steps.append(f"WARNING: {meta['writer_error']}")
         output = self._build_state(
             analysis["response"],
             DEFAULT_ROUTE,
@@ -478,7 +497,8 @@ class Supervisor:
             state.get("gap_analysis") or {},
             steps + ["Built final response"],
             loan_program=state.get("loan_program", ""),
-            corp_income={key: analysis[key] for key in ("meta", "items", "records", "documents")},
+            corp_income={key: analysis[key] for key in
+                         ("meta", "items", "financials", "income_estimate", "records", "documents")},
         )
         return {**state, "output_state": output}
 
@@ -579,6 +599,7 @@ class Supervisor:
                 "is_shareholders": is_shareholders_type(document_type),
                 "is_legal_rep": is_legal_rep_type(document_type),
                 "is_liabilities": is_liabilities_type(document_type),
+                "is_financial": is_financial_type(document_type),
             }
             tags = [p.tag for p in EXTRACTION_PASSES if flags[p.flag_attr]]
             steps.append(

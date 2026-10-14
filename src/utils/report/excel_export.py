@@ -1,7 +1,7 @@
 """Write the result as an Excel workbook laid out like the BRD.
 
 Sheets: Tóm tắt · 1. Pháp lý cơ bản · 2. Cổ đông · 3. Người đại diện ·
-4. Nợ thuế - tranh chấp · Kiểm tra (all findings) · Hồ sơ (files and how each
+4. Nợ thuế - tranh chấp · 5. Tài chính (BCTC, chỉ số, cảnh báo, thu nhập ghi nhận) · Kiểm tra (all findings) · Hồ sơ (files and how each
 was read). Amounts are numbers in đồng with a thousands format, so they can be
 summed and filtered.
 """
@@ -103,6 +103,31 @@ def write_excel(result: dict[str, Any], path: str | Path) -> Path:
             rows4.append([label, amount, detail, row.get("page"), row.get("source")])
     _sheet(wb, "4. Nợ thuế - tranh chấp", ["Loại", "Số tiền (đồng)", "Chi tiết", "Trang", "Nguồn"],
            rows4, [20, 18, 90, 7, 40], money_cols={2})
+
+    fin = result.get("financials") or {}
+    if fin:
+        periods = {**fin.get("years", {}), **({fin["interim"]["period"]: fin["interim"]} if fin.get("interim") else {})}
+        labels = (("Tổng tài sản", "total_assets"), ("Tài sản ngắn hạn", "current_assets"),
+                  ("Tài sản dài hạn", "non_current_assets"), ("Nợ phải trả", "total_liabilities"),
+                  ("Nợ ngắn hạn", "current_liabilities"), ("Vốn chủ sở hữu", "equity"),
+                  ("Tổng nguồn vốn", "total_capital"), ("Doanh thu thuần", "net_revenue"),
+                  ("Giá vốn hàng bán", "cogs"), ("Lợi nhuận gộp", "gross_profit"),
+                  ("Doanh thu tài chính", "financial_income"), ("Chi phí tài chính", "financial_expenses"),
+                  ("Chi phí bán hàng", "selling_expenses"), ("Chi phí quản lý DN", "admin_expenses"),
+                  ("Lợi nhuận thuần", "operating_profit"), ("Lợi nhuận trước thuế", "profit_before_tax"),
+                  ("Lợi nhuận sau thuế", "profit_after_tax"), ("Khấu hao", "depreciation"))
+        rows5 = [[label] + [p.get(key) for p in periods.values()] for label, key in labels]
+        for label, key in (("Biến động doanh thu", "revenue_growth"), ("LNST / DTT (ROS)", "ros"),
+                           ("Hệ số thanh toán hiện hành", "current_ratio")):
+            rows5.append([label] + [(fin.get("ratios", {}).get(y) or {}).get(key) for y in periods])
+        rows5 += [[], ["Nguồn"] + ["; ".join(fin.get("sources") or [])]]
+        rows5 += [["Cảnh báo", w] for w in fin.get("warnings") or []]
+        income = result.get("income_estimate") or {}
+        if income:
+            rows5 += [[], ["Thu nhập DN ghi nhận (đồng)", income.get("value")],
+                      ["Thành phần còn thiếu", "; ".join(income.get("missing") or []) or "—"]]
+        _sheet(wb, "5. Tài chính", ["Chỉ tiêu (đồng)"] + list(periods), rows5,
+               [32] + [20] * max(1, len(periods)), money_cols=set(range(2, len(periods) + 2)))
 
     findings = [[n, SEVERITY_LABELS[f["severity"]], f["message"], "\n".join(f.get("evidence") or [])]
                 for n, item in items.items() for f in item["findings"]]

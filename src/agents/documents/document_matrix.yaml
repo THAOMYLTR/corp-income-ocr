@@ -262,6 +262,7 @@ groups:
           CORP_INCOME_AGENT: O
         source: customer
         liabilities_extraction: true
+        financial_extraction: true
         keywords:
           - "thuyet minh bao cao tai chinh"
           - "ban thuyet minh"
@@ -280,6 +281,7 @@ groups:
           CORP_INCOME_AGENT: O
         source: customer
         liabilities_extraction: true
+        financial_extraction: true
         filename_keywords:
           - "bctc"
         keywords:
@@ -302,6 +304,26 @@ groups:
         keywords:
           - "to khai thue gia tri gia tang"
           - "thue gia tri gia tang"
+
+      - id: chung_tu_kinh_doanh
+        stt: "II.6"
+        short_label: "Hợp đồng / hóa đơn / sao kê"
+        label: "Hợp đồng kinh tế, hóa đơn VAT, sao kê tài khoản doanh nghiệp"
+        requirement:
+          cap_moi: ""
+        # Read by the report writer for Phụ lục 01 mục 2 (đầu vào / đầu ra).
+        agents: {}
+        source: customer
+        filename_keywords:
+          - "hop dong"
+          - "hdkt"
+          - "hoa don"
+          - "sao ke"
+        keywords:
+          - "hop dong kinh te"
+          - "hop dong mua ban"
+          - "hoa don gia tri gia tang"
+          - "sao ke tai khoan"
 
   # ===========================================================================
   - id: ho_so_vay_von
@@ -414,6 +436,22 @@ groups:
           - "ma khach hang"
           - "tinh trang quan he"
           - "bao cao tham dinh khdn"
+
+      - id: bao_cao_cic
+        stt: "V.4"
+        short_label: "Báo cáo CIC"
+        label: "Báo cáo thông tin tín dụng CIC của doanh nghiệp"
+        requirement:
+          cap_moi: ""
+        # Read by the report writer for Phụ lục 01 mục 4 (dư nợ tại TCTD).
+        agents: {}
+        source: external
+        filename_keywords:
+          - "cic"
+        keywords:
+          - "trung tam thong tin tin dung"
+          - "bao cao thong tin tin dung"
+          - "du no tai cac to chuc tin dung"
 
   # ===========================================================================
   - id: ho_so_soan_thao_noi_bo

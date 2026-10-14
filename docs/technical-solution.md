@@ -17,6 +17,23 @@ infrastructure and, later, one upload screen.
 | Reading | PDF OCR, Excel, CSV, XML, PPTX | + PDF text layer, photos, Word |
 | LLM | ChatOpenAI | + `LLM_PROVIDER` = anthropic / databricks |
 
+## 0b. Phụ lục 01 — the report the credit officer receives
+
+Template: `src/templates/corp-income-structure.md` (the user's "PHỤ LỤC 01 - THẨM ĐỊNH NGUỒN
+THU DOANH NGHIỆP"). Guidance: `config/prompts/corp_income_guidance.md` (verbatim).
+
+| Template part | Filled by | Where |
+|---|---|---|
+| 1.1, 1.2 (tên, MST, năm TL, ĐKKD, NĐDPL, tình trạng, thành viên, tỷ lệ, thay đổi 12 tháng) | code, from M1–M3 + checks | `src/utils/report/appendix_context.py` |
+| 3. Bảng tài chính + chỉ số (biến động DT, ROS, thanh toán hiện hành), cột lịch sử mục 5 | code, from M5 (`financial_extraction`) | `src/agents/calculator/financial_metrics.py` |
+| Thu nhập DN ghi nhận = (LNST − nghĩa vụ TDH + khấu hao) × tỷ lệ góp vốn | code (missing parts listed) | `financial_metrics.income_estimate` |
+| Nhận xét, 2. HĐKD, 4. CIC, 5. kế hoạch, 6. kết luận + phân nhóm Bad/Normal/Good Corp | one LLM call (`report_writer_llm`) with the guidance, the code-filled values, checks, ratios, Bad-Corp signals and document excerpts | `src/agents/report_writer.py`, `config/prompts/report_writer.md` |
+
+The LLM returns `{placeholder: text}` only for cells code left empty, so it can neither move
+the layout nor change a number. A cell it cannot support reads "Chưa có thông tin trong hồ sơ".
+The step log says how many cells each side filled; `corp_income.json → meta.llm_placeholders`
+lists the LLM's.
+
 ## 1. BRD steps → code
 
 | BRD step | Meaning | Where |

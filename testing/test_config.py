@@ -77,6 +77,11 @@ class BuildLlmTest(unittest.TestCase):
         self.assertIn("http_client", llm.kwargs)
         self.assertEqual(llm.kwargs["model_kwargs"]["thinking"]["budget_tokens"], 2000)
 
+    def test_team_convention_accepts_the_databricks_token_variable(self):
+        env = {"MODEL_PREMIUM": "ep", "ANTHROPIC_API_BASE": "https://x/serving-endpoints",
+               "DATABRICKS_API_TOKEN": "dapi-abc"}
+        self.assertEqual(self.build(env, "MODEL_PREMIUM").kwargs["api_key"], "dapi-abc")
+
     def test_thinking_budget_is_ignored_by_openai(self):
         llm = self.build({"MODEL_DOCUMENT": "gpt-4o", "OPENAI_API_KEY": "sk"}, "MODEL_DOCUMENT",
                          temperature=0.0, thinking_budget=2000)

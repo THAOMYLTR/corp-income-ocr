@@ -57,6 +57,7 @@ class ClassifiedDocument:
     is_shareholders: bool = False
     is_legal_rep: bool = False
     is_liabilities: bool = False
+    is_financial: bool = False
     legal_basic_extraction: dict[str, Any] | None = None
     legal_basic_extraction_error: str = ""
     shareholders_extraction: dict[str, Any] | None = None
@@ -65,6 +66,8 @@ class ClassifiedDocument:
     legal_rep_extraction_error: str = ""
     liabilities_extraction: dict[str, Any] | None = None
     liabilities_extraction_error: str = ""
+    financial_extraction: dict[str, Any] | None = None
+    financial_extraction_error: str = ""
 
 
 class UnderwritingGraphState(TypedDict, total=False):

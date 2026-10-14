@@ -12,7 +12,8 @@ from that environment variable and raises at startup if it is unset.
     LLM_PROVIDER=databricks_invocations
                              the team's existing Databricks convention:
                              {ANTHROPIC_API_BASE}/{model}/invocations, key from
-                             api_key= or OPENAI_API_KEY.
+                             api_key=, OPENAI_API_KEY, DATABRICKS_API_TOKEN or
+                             DATABRICKS_TOKEN (a Databricks token, never sk-...).
 
 LLM_PROVIDER unset → ``databricks_invocations`` when ANTHROPIC_API_BASE is set,
 otherwise ``openai``. ``api_key=`` (as the team notebooks pass it) overrides the
@@ -88,6 +89,9 @@ def build_llm(
         )
     provider = llm_provider()
     key = api_key or os.getenv(_KEY_ENV[provider], "")
+    if not key and provider == "databricks_invocations":
+        # The team notebooks keep the Databricks token under these names.
+        key = os.getenv("DATABRICKS_API_TOKEN", "") or os.getenv("DATABRICKS_TOKEN", "")
     missing = [] if key else [_KEY_ENV[provider]]
     url_env = _URL_ENV.get(provider)
     if url_env and not os.getenv(url_env):
@@ -162,6 +166,10 @@ class Config:
     shareholders_extraction_llm: Any = None
     legal_rep_extraction_llm: Any = None
     liabilities_extraction_llm: Any = None
+    # Phụ lục 01: financial statements (mục 3) and the report writer that fills
+    # the template's narrative placeholders from the extracted evidence.
+    financial_extraction_llm: Any = None
+    report_writer_llm: Any = None
     max_files: int = 50
     max_chars_per_document: int = 120_000
     max_extraction_calls: int = 60

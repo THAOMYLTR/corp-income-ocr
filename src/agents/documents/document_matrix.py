@@ -55,6 +55,8 @@ class DocumentType:
     shareholders_extraction: bool = False
     legal_rep_extraction: bool = False
     liabilities_extraction: bool = False
+    # Báo cáo tài chính → Phụ lục 01 mục 3 (tài chính doanh nghiệp).
+    financial_extraction: bool = False
 
     @property
     def routing_signature(self) -> frozenset[str]:
@@ -334,6 +336,7 @@ def _load(path: Path) -> DocumentMatrix:
                 shareholders_extraction=bool(entry.get("shareholders_extraction", False)),
                 legal_rep_extraction=bool(entry.get("legal_rep_extraction", False)),
                 liabilities_extraction=bool(entry.get("liabilities_extraction", False)),
+                financial_extraction=bool(entry.get("financial_extraction", False)),
             )
 
     if not types:
@@ -456,6 +459,13 @@ def is_liabilities_type(type_id: str) -> bool:
 
     doc = get_type(type_id)
     return bool(doc and doc.liabilities_extraction)
+
+
+def is_financial_type(type_id: str) -> bool:
+    """True when the financial-statement figures are extracted from this type."""
+
+    doc = get_type(type_id)
+    return bool(doc and doc.financial_extraction)
 
 
 def describe_types_for_prompt(group_id: str = "") -> str:

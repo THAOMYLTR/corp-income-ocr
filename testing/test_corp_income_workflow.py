@@ -9,7 +9,9 @@ and the output state the notebook saves.
 """
 
 import copy
+import json
 import tempfile
+from unittest import mock
 import unittest
 from pathlib import Path
 
@@ -39,12 +41,23 @@ REP_SITE = {"legal_representatives": [], "actual_operator": {"name": "Nguyễn V
 TAX = {"source_unit": "dong", "tax_debts": [{"authority": "Chi cục Thuế Đống Đa", "amount": 125000000,
                                               "overdue_days": 120, "status": "con_no"}],
        "social_insurance_debts": [], "administrative_penalties": [], "disputes": []}
+FIN = {"audited": True, "source_unit": "trieu dong", "unusual_items": [],
+       "periods": [
+           {"period": "2025", "period_type": "year", "total_assets": 50000, "current_assets": 30000,
+            "non_current_assets": 20000, "total_liabilities": 30000, "current_liabilities": 32000,
+            "equity": 20000, "total_capital": 50000, "net_revenue": 70000, "cogs": 60000,
+            "gross_profit": 10000, "profit_before_tax": 2500, "profit_after_tax": 2000, "depreciation": 500},
+           {"period": "2024", "period_type": "year", "total_assets": 45000, "current_assets": 28000,
+            "total_liabilities": 26000, "current_liabilities": 20000, "equity": 19000, "total_capital": 45000,
+            "net_revenue": 100000, "profit_after_tax": 3000},
+       ]}
 EMPTY = {
     "legal_basic": {"company_name": "", "tax_code": "", "legal_representatives": [], "source_unit": "dong"},
     "shareholders": {"members": [], "source_unit": "dong"},
     "legal_rep": {"legal_representatives": []},
     "liabilities": {"tax_debts": [], "social_insurance_debts": [], "administrative_penalties": [],
                     "disputes": [], "source_unit": "dong"},
+    "financial": {"periods": [], "source_unit": "dong"},
 }
 ANSWERS = {
     ("GCN_DKDN_ABC.txt", "legal_basic"): GCN, ("GCN_DKDN_ABC.txt", "shareholders"): MEMBERS,
@@ -52,6 +65,7 @@ ANSWERS = {
     ("masothue_0101234568.txt", "legal_basic"): LOOKUP, ("masothue_0101234568.txt", "legal_rep"): REP,
     ("BCTD_ABC.txt", "legal_basic"): SITE, ("BCTD_ABC.txt", "legal_rep"): REP_SITE,
     ("thong_bao_no_thue.txt", "liabilities"): TAX,
+    ("BCTC_2025.txt", "financial"): FIN,
 }
 
 
@@ -64,6 +78,18 @@ class FakeChain:
     def invoke(self, payload):
         self.calls.append((payload["filename"], self.pass_name))
         return copy.deepcopy(ANSWERS.get((payload["filename"], self.pass_name), EMPTY[self.pass_name]))
+
+
+class FakeWriterChain:
+    """Stands in for the report-writer chain; answers every requested cell."""
+
+    def __init__(self, seen: list):
+        self.seen = seen
+
+    def invoke(self, payload):
+        self.seen.append(payload)
+        names = [json.loads(line)["o"] for line in payload["fields"].splitlines()]
+        return {name: f"LLM:{name}" for name in names if name != "KetLuan"}
 
 
 def supervisor_with_fakes(calls: list) -> Supervisor:
@@ -85,6 +111,8 @@ DOSSIER = {
     "ho_so_noi_bo/masothue_0101234568.txt": "Thông tin người nộp thuế",
     "ho_so_soan_thao_noi_bo/BCTD_ABC.txt": "Báo cáo khảo sát thực địa",
     "ho_so_tai_chinh/thong_bao_no_thue.txt": "THÔNG BÁO TIỀN THUẾ NỢ",
+    "ho_so_tai_chinh/BCTC_2025.txt": "BẢNG CÂN ĐỐI KẾ TOÁN tại ngày 31/12/2025",
+    "ho_so_tai_chinh/VAT01.2025.txt": "TỜ KHAI THUẾ GIÁ TRỊ GIA TĂNG — khách hàng chính: Công ty Minh Phát",
     "loose_file.txt": "file đặt ngoài mọi thư mục",
 }
 
@@ -96,15 +124,20 @@ class CorpIncomeWorkflowTest(unittest.TestCase):
         root = Path(cls.tmp.name) / "khdn_abc"
         write_dossier(root, DOSSIER)
         cls.calls: list = []
-        cls.result = supervisor_with_fakes(cls.calls).process(
-            [str(root)],
-            agent="CORP_INCOME_AGENT",
-            loan_program="KHDN",
-            loan_date="13/10/2026",
-            borrower_names=["Nguyễn Văn A"],
-            internal_data={"legal_basic": {**GCN, "head_office_address": "Số 5 Cầu Giấy, Hà Nội"}},
-            watchlist=[{"name": "Công ty CP Đầu tư XYZ", "tax_code": "0109999999", "list": "WL"}],
-        )
+        cls.writer_payloads: list = []
+        sup = supervisor_with_fakes(cls.calls)
+        sup.config.report_writer_llm = object()
+        with mock.patch("src.agents.report_writer.build_writer_chain",
+                        lambda llm: FakeWriterChain(cls.writer_payloads)):
+            cls.result = sup.process(
+                [str(root)],
+                agent="CORP_INCOME_AGENT",
+                loan_program="KHDN",
+                loan_date="13/10/2026",
+                borrower_names=["Nguyễn Văn A"],
+                internal_data={"legal_basic": {**GCN, "head_office_address": "Số 5 Cầu Giấy, Hà Nội"}},
+                watchlist=[{"name": "Công ty CP Đầu tư XYZ", "tax_code": "0109999999", "list": "WL"}],
+            )
         cls.codes = {
             int(n): {f["code"]: f for f in item["findings"]}
             for n, item in cls.result["corp_income"]["items"].items()
@@ -116,7 +149,7 @@ class CorpIncomeWorkflowTest(unittest.TestCase):
 
     def test_runs_to_the_corp_agent(self):
         self.assertEqual(self.result["agent_name"], "CORP_INCOME_AGENT")
-        self.assertTrue(self.result["response"].startswith("# Corp Income Assessment"))
+        self.assertTrue(self.result["response"].startswith("## PHỤ LỤC 01 - THẨM ĐỊNH NGUỒN THU DOANH NGHIỆP"))
 
     def test_upload_boxes_duplicates_and_loose_files(self):
         steps = "\n".join(self.result["steps"])
@@ -124,7 +157,8 @@ class CorpIncomeWorkflowTest(unittest.TestCase):
         self.assertIn("Skipped duplicate document: GCN_DKDN_ABC_copy.txt", steps)
         types = {d["filename"]: d["document_type"] for d in self.result["document_classifications"]}
         self.assertEqual(types, {"GCN_DKDN_ABC.txt": "gcn_dkdn", "masothue_0101234568.txt": "tra_cuu_dkdn",
-                                 "BCTD_ABC.txt": "bao_cao_thuc_dia", "thong_bao_no_thue.txt": "thong_bao_no_thue"})
+                                 "BCTD_ABC.txt": "bao_cao_thuc_dia", "thong_bao_no_thue.txt": "thong_bao_no_thue",
+                                 "BCTC_2025.txt": "bao_cao_tai_chinh", "VAT01.2025.txt": "to_khai_vat"})
 
     def test_each_document_runs_only_its_brd_items(self):
         by_file: dict[str, set] = {}
@@ -158,6 +192,43 @@ class CorpIncomeWorkflowTest(unittest.TestCase):
         self.assertEqual(set(self.result["ocr_text"]), {d["filename"] for d in self.result["document_classifications"]})
         self.assertIn("records", self.result["corp_income"])
         self.assertEqual(self.result["corp_income"]["meta"]["unknown_placeholders"], [])
+        self.assertIn("financials", self.result["corp_income"])
+
+
+class AppendixTemplateTest(CorpIncomeWorkflowTest):
+    """Phụ lục 01: code fills facts and figures, the writer only the rest."""
+
+    def test_legal_cells_come_from_the_documents(self):
+        report = self.result["response"]
+        self.assertIn("| Mã số thuế | 0101234568 |", report)  # external lookup wins
+        self.assertIn("| Năm thành lập | 2015 |", report)
+        self.assertIn("| Nguyễn Văn A | Khách hàng vay vốn | 60% | Có — nhận vốn góp ngày 20/03/2026 |", report)
+        self.assertNotIn("{{", report)
+
+    def test_financial_table_and_ratios_are_computed_in_code(self):
+        report = self.result["response"]
+        self.assertIn("<td>{}</td>".format("70.000"), report)          # DTT 2025, triệu đồng
+        self.assertIn("<td>-30,0%</td>", report)                       # 70.000 / 100.000 - 1
+        self.assertIn("<td>0,94</td>", report)                         # 30.000 / 32.000
+        warnings = self.result["corp_income"]["financials"]["warnings"]
+        self.assertTrue(any("giảm 30,0%" in w for w in warnings))
+        self.assertTrue(any("thanh toán hiện hành < 1" in w for w in warnings))
+        income = self.result["corp_income"]["income_estimate"]
+        self.assertEqual(income["value"], (2_000e6 + 500e6) * 60 / 100)
+
+    def test_writer_gets_only_the_narrative_cells_and_the_evidence(self):
+        meta = self.result["corp_income"]["meta"]
+        self.assertIn("NhanXetHDKD", meta["llm_placeholders"])
+        self.assertIn("KetLuan", meta["llm_placeholders"])
+        for code_cell in ("MST", "ThanhVien1", "DTT2025", "ROS2024", "TongTaiSanCurrent"):
+            self.assertNotIn(code_cell, meta["llm_placeholders"])
+        evidence = json.loads(self.writer_payloads[0]["evidence"])
+        self.assertTrue(evidence["dau_hieu_bad_corp"])
+        self.assertIn("VAT01.2025.txt", {e["file"] for e in evidence["trich_doan_ho_so"]})
+        report = self.result["response"]
+        self.assertIn("LLM:NhanXetHDKD", report)
+        self.assertIn("Chưa có thông tin trong hồ sơ", report)          # KetLuan left empty by the fake
+        self.assertIn("1 cell(s) empty", meta["writer_error"])
 
 
 class EvidenceGapTest(unittest.TestCase):

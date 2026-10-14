@@ -257,11 +257,39 @@ def load_template(path: str | Path | None = None) -> tuple[str, str]:
     return DEFAULT_TEMPLATE, "built-in"
 
 
-def render_markdown(result: dict[str, Any], template: str | None = None) -> str:
+def template_placeholders(template: str) -> list[str]:
+    """Every distinct placeholder name, in the order the template uses them."""
+
+    body = HTML_COMMENT.sub("", template)
+    return list(dict.fromkeys(PLACEHOLDER.findall(body)))
+
+
+def _fits_line(value: str, line: str) -> str:
+    """A value placed in a table row must stay on that row."""
+
+    if line.lstrip().startswith("|") or "<td>" in line:
+        return value.replace("|", "/").replace("\r", "").replace("\n", "<br>")
+    return value
+
+
+def fill_template(text: str, ctx: dict[str, str]) -> str:
+    """Replace each placeholder line by line; unknown names become "—"."""
+
+    out = []
+    for line in text.split("\n"):
+        out.append(PLACEHOLDER.sub(lambda m: _fits_line(str(ctx.get(m.group(1), "—")), line), line))
+    return "\n".join(out)
+
+
+def render_markdown(
+    result: dict[str, Any],
+    template: str | None = None,
+    extra: dict[str, str] | None = None,
+) -> str:
     """Fill ``template`` (default: src/templates/corp-income-structure.md, else built-in)."""
 
     text = template if template is not None else load_template()[0]
     # Notes to the template author (<!-- ... -->) stay out of the report.
     text = HTML_COMMENT.sub("", text).lstrip("\n")
-    ctx = build_context(result)
-    return PLACEHOLDER.sub(lambda m: ctx.get(m.group(1), "—"), text)
+    ctx = {**build_context(result), **(extra or {})}
+    return fill_template(text, ctx)
