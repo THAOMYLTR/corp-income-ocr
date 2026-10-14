@@ -231,6 +231,29 @@ class AppendixTemplateTest(CorpIncomeWorkflowTest):
         self.assertIn("1 cell(s) empty", meta["writer_error"])
 
 
+class OcrFallbackTest(unittest.TestCase):
+    """A noisy scanned GCN: the LLM left MST and dates empty, the text has them."""
+
+    OCR = ("GIAY CHUNG NHAN DANG KY DOANH NGHIEP\nMA so doanh nghiép: 0108977425\n"
+           "Dang ky lan dau: ngay 07 thang 11 naém 2019\n"
+           "Dang ky thay déi lan thir: 4, ngay 26 thang 09 nadm 2025")
+
+    def test_empty_fields_are_filled_from_the_text(self):
+        from src.agents.extraction.legal_basic_extraction import fill_from_text
+        result = fill_from_text({"tax_code": "", "establishment_date": ""}, self.OCR)
+        self.assertEqual(result["tax_code"], "0108977425")
+        self.assertEqual(result["establishment_date"], "07/11/2019")
+        self.assertEqual((result["registration_change_number"], result["latest_change_date"]), (4, "26/09/2025"))
+
+    def test_llm_values_are_never_overwritten(self):
+        from src.agents.extraction.legal_basic_extraction import fill_from_text
+        result = fill_from_text({"tax_code": "0101234567", "establishment_date": "01/01/2015",
+                                 "registration_change_number": 2, "latest_change_date": "02/02/2020"}, self.OCR)
+        self.assertEqual(result["tax_code"], "0101234567")
+        self.assertEqual(result["latest_change_date"], "02/02/2020")
+        self.assertNotIn("extraction_notes", result)
+
+
 class GuidanceTest(unittest.TestCase):
     def test_guidance_sits_next_to_the_template_and_is_read(self):
         from src.agents.report_writer import GUIDANCE_PATH, load_guidance

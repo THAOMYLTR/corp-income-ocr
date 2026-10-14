@@ -74,7 +74,9 @@ def build_appendix_context(result: dict[str, Any], records: list[dict[str, Any]]
     ctx["NamThanhLap"] = str(founded_date.year) if founded_date else (str(founded) if founded else NO_INFO)
     number = _summary_value(items, "registration_change_number")
     latest = _summary_value(items, "latest_change_date")
-    parts = [f"Lần đầu: {founded}" if founded else "", f"Thay đổi lần {number}: {latest}" if number or latest else ""]
+    change = " ".join(x for x in (f"lần {number}" if number not in (None, "") else "",
+                                   f"ngày {latest}" if latest else "") if x)
+    parts = [f"Lần đầu: {founded}" if founded else "", f"Thay đổi {change}" if change else ""]
     ctx["DKKD"] = "; ".join(p for p in parts if p) or NO_INFO
     ctx["NguoiDaiDien"] = _summary_value(items, "legal_representatives") or NO_INFO
     ctx["TinhTrangHoatDong"] = _summary_value(items, "operating_status") or "Chưa có kết quả tra cứu"

@@ -12,6 +12,7 @@ Amounts are read exactly as printed plus ``source_unit`` and scaled to đồng i
 ``normalize_amounts`` — the only place a figure is converted.
 """
 
+import re
 from typing import Any
 
 from src.agents.extraction.structured_extraction import (
@@ -20,6 +21,7 @@ from src.agents.extraction.structured_extraction import (
     scale_listed_amounts,
 )
 from src.prompts import system_prompt
+from src.utils.common import normalize_text
 
 
 REQUIRED_TOP_LEVEL_KEYS = {"company_name", "tax_code", "legal_representatives"}
@@ -31,6 +33,50 @@ def normalize_amounts(result: dict[str, Any]) -> dict[str, Any]:
     """Convert every amount to đồng using the result's source_unit, in place."""
 
     scale_listed_amounts(result, _AMOUNT_FIELDS)
+    return result
+
+
+# Deterministic back-up for the four GCN fields the checks lean on most. A
+# scanned GCN often OCRs as "MA so doanh nghiép: 0108977425" or "ngay 07 thang
+# 11 naém 2019" — readable to a regex on the accent-stripped text even when the
+# LLM leaves the field empty. Only fills what the LLM left empty.
+_DATE = r"ngay\s*(\d{1,2})\s*thang\s*(\d{1,2})\s*n\w{0,3}\s*((?:19|20)\d{2})"
+_TAX_CODE = re.compile(r"ma\s*so\s*(?:doanh\s*nghiep|thue|dn)\s*(\d{10})(?:\s*(\d{3})\b)?")
+_FIRST = re.compile(r"dang\s*ky\s*lan\s*dau\s*" + _DATE)
+_CHANGE = re.compile(r"thay\s*\w{2,4}\s*lan\s*th\w{0,3}\s*(\d{1,2})\s*" + _DATE)
+
+
+def _date(day: str, month: str, year: str) -> str:
+    return f"{int(day):02d}/{int(month):02d}/{year}"
+
+
+def fill_from_text(result: dict[str, Any], content: str) -> dict[str, Any]:
+    """Fill empty tax_code / dates / change number from the OCR text itself."""
+
+    text = normalize_text(content or "")
+    filled = []
+    if not result.get("tax_code"):
+        match = _TAX_CODE.search(text)
+        if match:
+            result["tax_code"] = match.group(1) + (f"-{match.group(2)}" if match.group(2) else "")
+            filled.append("tax_code")
+    if not result.get("establishment_date"):
+        match = _FIRST.search(text)
+        if match:
+            result["establishment_date"] = _date(*match.groups())
+            filled.append("establishment_date")
+    change = _CHANGE.search(text)
+    if change:
+        if result.get("registration_change_number") in (None, ""):
+            result["registration_change_number"] = int(change.group(1))
+            filled.append("registration_change_number")
+        if not result.get("latest_change_date"):
+            result["latest_change_date"] = _date(*change.groups()[1:])
+            filled.append("latest_change_date")
+    if filled:
+        notes = result.setdefault("extraction_notes", [])
+        if isinstance(notes, list):
+            notes.append("Điền từ văn bản OCR (quy tắc cố định): " + ", ".join(filled))
     return result
 
 
@@ -54,5 +100,5 @@ def extract_legal_basic_structured_data(
         content,
         REQUIRED_TOP_LEVEL_KEYS,
         "No legal_basic_extraction_llm configured.",
-        normalize_amounts,
+        lambda result: fill_from_text(normalize_amounts(result), content),
     )
