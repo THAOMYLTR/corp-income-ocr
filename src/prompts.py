@@ -16,9 +16,9 @@ PROMPTS: dict[str, frozenset[str]] = {
     "shareholders_extraction": frozenset(),
     "legal_rep_extraction": frozenset(),
     "liabilities_extraction": frozenset(),
-    # Phụ lục 01: financial statements, and the report writer (guidance + rules).
+    # Phụ lục 01: financial statements, and the report writer rules (the guidance
+    # itself lives next to the template: src/templates/corp-income-guidance.md).
     "financial_extraction": frozenset(),
-    "corp_income_guidance": frozenset(),
     "report_writer": frozenset(),
     "report_writer_user": frozenset(),
     "extraction_user": frozenset(),

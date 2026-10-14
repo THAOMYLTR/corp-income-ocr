@@ -20,7 +20,7 @@ infrastructure and, later, one upload screen.
 ## 0b. Phụ lục 01 — the report the credit officer receives
 
 Template: `src/templates/corp-income-structure.md` (the user's "PHỤ LỤC 01 - THẨM ĐỊNH NGUỒN
-THU DOANH NGHIỆP"). Guidance: `config/prompts/corp_income_guidance.md` (verbatim).
+THU DOANH NGHIỆP"). Guidance: `src/templates/corp-income-guidance.md` (verbatim; edit it there).
 
 | Template part | Filled by | Where |
 |---|---|---|

@@ -231,6 +231,15 @@ class AppendixTemplateTest(CorpIncomeWorkflowTest):
         self.assertIn("1 cell(s) empty", meta["writer_error"])
 
 
+class GuidanceTest(unittest.TestCase):
+    def test_guidance_sits_next_to_the_template_and_is_read(self):
+        from src.agents.report_writer import GUIDANCE_PATH, load_guidance
+        self.assertEqual(GUIDANCE_PATH.parent.name, "templates")
+        text = load_guidance()
+        self.assertIn("PHÁP LÝ DOANH NGHIỆP", text)
+        self.assertIn("Bad Corp", text)
+
+
 class EvidenceGapTest(unittest.TestCase):
     def test_no_legal_document_stops_before_any_llm_call(self):
         calls: list = []

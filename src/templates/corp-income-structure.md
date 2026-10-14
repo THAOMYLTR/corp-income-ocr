@@ -5,7 +5,7 @@ Cách điền:
 - CODE điền (lấy từ hồ sơ / tính toán, không qua LLM): mục 1.1, bảng 1.2, TSC,
   toàn bộ bảng tài chính và chỉ số (đơn vị: triệu đồng), cột lịch sử của mục 5.
   Danh sách tên: src/utils/report/appendix_context.py.
-- LLM viết (theo config/prompts/corp_income_guidance.md): các ô còn lại — nhận xét,
+- LLM viết (theo src/templates/corp-income-guidance.md): các ô còn lại — nhận xét,
   hoạt động kinh doanh, CIC, phương án kinh doanh, kết luận.
 - Bổ sung so với bản gốc: NhanXetPhapLyDN ở mục 1.1 và các ô mục 5 (bảng
   phương án kinh doanh gốc để trống).

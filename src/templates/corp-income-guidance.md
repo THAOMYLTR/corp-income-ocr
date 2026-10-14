@@ -1,7 +1,3 @@
----
-name: corp_income_guidance
-description: Guidance nghiệp vụ đánh giá nguồn thu doanh nghiệp (bản gốc của người dùng, giữ nguyên văn)
----
 ### name: corp-income-assessment
 
 description: >-

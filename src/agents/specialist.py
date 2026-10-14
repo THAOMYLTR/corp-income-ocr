@@ -8,7 +8,7 @@ Two layers, so a figure in the report can only come from a document:
    (appendix_context.py).
 2. One LLM call (report_writer.py) — only the cells code cannot write: the
    "Nhận xét…" paragraphs, business activity, CIC and the conclusion, written
-   from the guidance (config/prompts/corp_income_guidance.md) and the evidence.
+   from the guidance (src/templates/corp-income-guidance.md) and the evidence.
 """
 
 from __future__ import annotations

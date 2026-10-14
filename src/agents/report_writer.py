@@ -2,7 +2,7 @@
 
 Code fills every fact and figure first (appendix_context). The placeholders
 still empty — "Nhận xét…", business activity, CIC, the conclusion — are sent
-to the LLM together with the guidance (config/prompts/corp_income_guidance.md),
+to the LLM together with the guidance (src/templates/corp-income-guidance.md),
 the writer rules (config/prompts/report_writer.md), the values code already
 filled, the BRD checks, the financial ratios and excerpts of the documents.
 The LLM answers ``{placeholder: text}``; code puts the text in place, so the
@@ -23,13 +23,25 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from src.llm_errors import explain_llm_error
 from src.prompts import system_prompt
+from src.utils.paths import PROJECT_ROOT
 
 NO_INFO = "Chưa có thông tin trong hồ sơ"
 MAX_EVIDENCE_CHARS = 120_000
 
 
+GUIDANCE_PATH = PROJECT_ROOT / "src" / "templates" / "corp-income-guidance.md"
+
+
+def load_guidance() -> str:
+    """The business guidance, edited by the user next to the report template."""
+
+    if not GUIDANCE_PATH.is_file():
+        raise FileNotFoundError(f"guidance not found: {GUIDANCE_PATH}")
+    return GUIDANCE_PATH.read_text(encoding="utf-8").strip()
+
+
 def build_writer_chain(llm: Any):
-    system = system_prompt("corp_income_guidance") + "\n\n" + system_prompt("report_writer")
+    system = "GUIDANCE:\n" + load_guidance() + "\n\n" + system_prompt("report_writer")
     prompt = ChatPromptTemplate.from_messages(
         [SystemMessage(content=system), ("human", system_prompt("report_writer_user"))]
     )
