@@ -52,7 +52,10 @@ from src.agents.documents.document_matrix import (
     agent_relevance_for_type,
     get_type,
     is_catch_all_box,
+    is_cic_type,
     is_financial_type,
+    is_plan_type,
+    is_vat_type,
     is_legal_basic_type,
     is_legal_rep_type,
     is_liabilities_type,
@@ -82,6 +85,9 @@ from src.agents.extraction.financial_extraction import (
     build_financial_extraction_chain,
     extract_financial_structured_data,
 )
+from src.agents.extraction.vat_extraction import build_vat_extraction_chain, extract_vat_structured_data
+from src.agents.extraction.cic_extraction import build_cic_extraction_chain, extract_cic_structured_data
+from src.agents.extraction.plan_extraction import build_plan_extraction_chain, extract_plan_structured_data
 from src.agents.specialist import SPECIALIST_BY_AGENT
 
 DEFAULT_ROUTE: AgentName = "CORP_INCOME_AGENT"
@@ -102,6 +108,9 @@ class ExtractionPass:
     extract: Callable[..., Any]
     # A required pass that fails stops the run instead of reporting on nothing.
     required: bool = False
+    # [BRD 16/10] Config attribute used when ``llm_attr`` is not set, so a notebook
+    # written before a pass existed still runs it.
+    fallback_llm_attr: str = ""
 
     def failures(
         self, docs: list[ClassifiedDocument]
@@ -170,6 +179,25 @@ EXTRACTION_PASSES: tuple[ExtractionPass, ...] = (
         build_chain=build_financial_extraction_chain,
         extract=extract_financial_structured_data,
     ),
+    # [BRD 16/10] M6-M8 — VAT returns, CIC bulletins, business plan.
+    ExtractionPass(
+        label="Tờ khai VAT", tag="M6", flag_attr="is_vat",
+        result_attr="vat_extraction", error_attr="vat_extraction_error",
+        llm_attr="vat_extraction_llm", fallback_llm_attr="financial_extraction_llm",
+        build_chain=build_vat_extraction_chain, extract=extract_vat_structured_data,
+    ),
+    ExtractionPass(
+        label="CIC S10A/R20", tag="M7", flag_attr="is_cic",
+        result_attr="cic_extraction", error_attr="cic_extraction_error",
+        llm_attr="cic_extraction_llm", fallback_llm_attr="financial_extraction_llm",
+        build_chain=build_cic_extraction_chain, extract=extract_cic_structured_data,
+    ),
+    ExtractionPass(
+        label="Phương án kinh doanh", tag="M8", flag_attr="is_plan",
+        result_attr="plan_extraction", error_attr="plan_extraction_error",
+        llm_attr="plan_extraction_llm", fallback_llm_attr="financial_extraction_llm",
+        build_chain=build_plan_extraction_chain, extract=extract_plan_structured_data,
+    ),
 )
 
 
@@ -215,7 +243,9 @@ class Supervisor:
         )
         self._grouped_classifier_chains: dict[str, Any] = {}
         for pass_ in EXTRACTION_PASSES:
-            llm = getattr(config, pass_.llm_attr)
+            # getattr(..., None): an older Config without the field still works.
+            llm = getattr(config, pass_.llm_attr, None) or (
+                getattr(config, pass_.fallback_llm_attr, None) if pass_.fallback_llm_attr else None)
             setattr(self, pass_.chain_attr,
                     pass_.build_chain(llm) if llm else None)
         self.workflow_graph = self._build_workflow_graph()
@@ -455,7 +485,7 @@ class Supervisor:
 
         steps = state.get("steps", [])
         steps.append("Running CORP_INCOME_AGENT")
-        agent = SPECIALIST_BY_AGENT[DEFAULT_ROUTE](self.config.report_writer_llm)
+        agent = SPECIALIST_BY_AGENT[DEFAULT_ROUTE](getattr(self.config, "report_writer_llm", None))
         try:
             analysis = agent.analyze(
                 state.get("documents") or [],
@@ -486,6 +516,8 @@ class Supervisor:
         )
         for warning in analysis["financials"]["warnings"]:
             steps.append(f"Tài chính: {warning}")
+        steps.append(f"Phân nhóm: {analysis['corp_group']['group']} — {analysis['corp_group']['finance']}; "
+                     f"{analysis['corp_group']['bureau']}")
         if meta["writer_error"]:
             steps.append(f"WARNING: {meta['writer_error']}")
         output = self._build_state(
@@ -498,7 +530,8 @@ class Supervisor:
             steps + ["Built final response"],
             loan_program=state.get("loan_program", ""),
             corp_income={key: analysis[key] for key in
-                         ("meta", "items", "financials", "income_estimate", "records", "documents")},
+                         ("meta", "items", "financials", "income_estimate", "cic", "corp_group",
+                          "records", "documents")},
         )
         return {**state, "output_state": output}
 
@@ -514,6 +547,7 @@ class Supervisor:
         internal_data: dict[str, Any] | None = None,
         external_data: dict[str, Any] | None = None,
         watchlist: list[dict[str, Any]] | None = None,
+        annual_lt_principal: float | None = None,
     ) -> dict[str, Any]:
         """Run one local notebook request through the workflow.
 
@@ -522,6 +556,8 @@ class Supervisor:
         internal_data  {item: JSON} from BCDE/BEP/DBX; external_data: Cổng ĐKDN/thuế/BHXH
                        (item = legal_basic | shareholders | legal_rep | liabilities)
         watchlist      [{"name", "tax_code", "id_number", "list": "AML|BL|WL"}]
+        annual_lt_principal  [BRD 16/10] nghĩa vụ trả gốc TDH hàng năm của DN (đồng), for
+                       "LNST sử dụng để trả nghĩa vụ TDH"; None = chưa có (tính 0, ghi chú)
         """
 
         initial_state: UnderwritingGraphState = {
@@ -533,6 +569,7 @@ class Supervisor:
                 "internal_data": internal_data or {},
                 "external_data": external_data or {},
                 "watchlist": watchlist or [],
+                "annual_lt_principal": annual_lt_principal,
             },
             "decision": self._decision_for(agent),
             "workflow_mode": self._workflow_mode_for_route(agent),
@@ -600,6 +637,9 @@ class Supervisor:
                 "is_legal_rep": is_legal_rep_type(document_type),
                 "is_liabilities": is_liabilities_type(document_type),
                 "is_financial": is_financial_type(document_type),
+                "is_vat": is_vat_type(document_type),
+                "is_cic": is_cic_type(document_type),
+                "is_plan": is_plan_type(document_type),
             }
             tags = [p.tag for p in EXTRACTION_PASSES if flags[p.flag_attr]]
             steps.append(

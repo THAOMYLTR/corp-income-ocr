@@ -26,6 +26,13 @@ QUY TẮC BẮT BUỘC:
   Lợi nhuận khác (40), Lợi nhuận trước thuế (50), Lợi nhuận sau thuế (60).
 - "depreciation": chi phí khấu hao TSCĐ trong kỳ (lưu chuyển tiền tệ mã 02 hoặc
   thuyết minh), null nếu không có.
+- [BRD 16/10] BCTC theo TT133 (không chia ngắn hạn/dài hạn): vẫn ghi các dòng thành
+  phần để hệ thống tự tính — "cash" (tiền và tương đương tiền), "short_term_investments"
+  (đầu tư tài chính ngắn hạn), "receivables" (các khoản phải thu), "inventory" (hàng
+  tồn kho), "other_assets" (tài sản khác/tài sản ngắn hạn khác). KHÔNG tự cộng.
+- [BRD 16/10] "retained_earnings": lợi nhuận sau thuế chưa phân phối (mã 421).
+  "other_income": thu nhập khác (mã 31). "interest_expense": "trong đó: chi phí lãi
+  vay" (mã 23). "auditor_name": tên công ty kiểm toán (BCTC kiểm toán), '' nếu không có.
 - "unusual_items": khoản mục bất thường NÊU TRONG văn bản (phải thu khó đòi lớn,
   thu nhập khác bất thường, ý kiến ngoại trừ của kiểm toán...). Kèm số liệu nếu có.
 - Văn bản không phải BCTC thì trả "periods": [] và ghi lý do vào "extraction_notes".
@@ -34,6 +41,7 @@ Trả về CHÍNH XÁC JSON sau, không thêm text:
 {
   "company_name": "...",
   "audited": <true | false | null>,
+  "auditor_name": "",
   "source_unit": "dong | nghin dong | trieu dong | ty dong",
   "periods": [
     {
@@ -49,6 +57,9 @@ Trả về CHÍNH XÁC JSON sau, không thêm text:
       "operating_profit": null, "other_profit": null,
       "profit_before_tax": null, "profit_after_tax": null,
       "depreciation": null,
+      "cash": null, "short_term_investments": null, "receivables": null,
+      "inventory": null, "other_assets": null,
+      "retained_earnings": null, "other_income": null, "interest_expense": null,
       "page": <số trang từ mốc "--- Page N ---" hoặc null>
     }
   ],

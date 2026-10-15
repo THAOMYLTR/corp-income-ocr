@@ -20,7 +20,10 @@ from typing import Any
 from src.agents.calculator.legal_checks import parse_date, run_all_checks
 from src.agents.calculator import financial_metrics
 from src.agents.extraction import (
+    cic_extraction,
     financial_extraction,
+    plan_extraction,
+    vat_extraction,
     legal_basic_extraction,
     legal_rep_extraction,
     liabilities_extraction,
@@ -28,10 +31,14 @@ from src.agents.extraction import (
 )
 from src.agents.report_writer import write_placeholders
 from src.types import ClassifiedDocument
+from src.agents.calculator import cic_metrics
+from src.utils.paths import PROJECT_ROOT
 from src.utils.report.appendix_context import (
-    bad_corp_signals,
+    apply_output_conditions,
     borrower_ownership,
     build_appendix_context,
+    business_type,
+    corp_group,
     fill_missing_financial_names,
 )
 from src.utils.report.report_template import (
@@ -49,12 +56,21 @@ PASSES: dict[str, tuple[str, Any]] = {
     "legal_rep": ("legal_rep_extraction", legal_rep_extraction.normalize_amounts),
     "liabilities": ("liabilities_extraction", liabilities_extraction.normalize_amounts),
     "financial": ("financial_extraction", financial_extraction.normalize_amounts),
+    # [BRD 16/10]
+    "vat": ("vat_extraction", vat_extraction.normalize_amounts),
+    "cic": ("cic_extraction", cic_extraction.normalize_amounts),
+    "plan": ("plan_extraction", plan_extraction.normalize_amounts),
 }
 
 # Documents whose text the report writer reads first (business activity, CIC,
 # business plan); then everything else. Characters per document.
-EXCERPT_FIRST = ("bao_cao_thuc_dia", "bao_cao_cic", "de_nghi_cap_tin_dung", "chung_tu_kinh_doanh",
-                 "to_khai_vat", "hinh_anh_thuc_dia", "")
+# [BRD 16/10] + du_lieu_noi_bo (dữ liệu thẩm định KHDN nội bộ TCB, ngành nghề) and GCN
+# (address of the head office) — mục 2 compares them with the field report.
+EXCERPT_FIRST = ("bao_cao_thuc_dia", "du_lieu_noi_bo", "hinh_anh_thuc_dia", "chung_tu_kinh_doanh",
+                 "de_nghi_cap_tin_dung", "gcn_dkdn", "bao_cao_cic", "to_khai_vat", "")
+# [BRD 16/10] "Tên ngành: theo bảng ngành tại TCB (file đính kèm)". Optional: put the
+# TCB industry list here (Markdown/CSV text); the writer then names the industry from it.
+INDUSTRY_TABLE_FILE = PROJECT_ROOT / "src" / "templates" / "bang-nganh-tcb.md"
 EXCERPT_CHARS = {"first": 6_000, "other": 2_500}
 EXCERPT_TOTAL = 80_000
 
@@ -157,8 +173,17 @@ class CorpIncomeAnalysis:
             borrower_names=borrower_names,
             watchlist=reference_data.get("watchlist") or [],
         )
-        financials = financial_metrics.compute(records)
-        income = financial_metrics.income_estimate(financials, borrower_ownership(items, borrower_names))
+        # [BRD 16/10] all groups and values below are computed in code, then shown to the LLM.
+        financials = financial_metrics.compute(records, as_of)
+        latest = financials["latest_year"]
+        btype, btype_note = business_type(records)
+        cic = cic_metrics.compute(
+            records, as_of,
+            revenue_prev_year=(financials["years"].get(latest) or {}).get("net_revenue") if latest else None,
+            business_type=btype)
+        corp = corp_group(items, financials, cic, as_of)
+        income = financial_metrics.income_estimate(
+            financials, borrower_ownership(items, borrower_names), reference_data.get("annual_lt_principal"))
 
         template_text, template_source = load_template(template_path)
         template_body = HTML_COMMENT.sub("", template_text)
@@ -191,7 +216,8 @@ class CorpIncomeAnalysis:
 
         # 1. Code fills every fact and figure.
         names = template_placeholders(template_body)
-        ctx = {**build_context(base), **build_appendix_context(base, records, financials, as_of)}
+        ctx = {**build_context(base),
+               **build_appendix_context(base, records, financials, as_of, cic=cic, corp=corp, income=income)}
         fill_missing_financial_names(set(names), ctx)
 
         # 2. The LLM writes only what is left.
@@ -203,19 +229,30 @@ class CorpIncomeAnalysis:
             "phap_ly": _compact_items(items),
             "tai_chinh": {
                 "nguon": financials["sources"],
-                "so_lieu_theo_nam": {y: {k: v for k, v in fig.items() if k != "_source"}
+                "so_lieu_theo_nam": {y: {k: v for k, v in fig.items() if not k.startswith("_")}
                                      for y, fig in financials["years"].items()},
-                "ky_giua_nien_do": {k: v for k, v in financials["interim"].items() if k != "_source"},
+                "ky_giua_nien_do": {k: v for k, v in financials["interim"].items() if not k.startswith("_")},
+                "to_khai_vat": financials["vat"],
                 "chi_so": financials["ratios"],
-                "canh_bao": financials["warnings"],
+                "canh_bao_trong_yeu": financials["material_warnings"],
+                "canh_bao_khac": financials["other_warnings"],
+                "nhan_xet_trang_thai": financials["status_remarks"],
+                "nhom_tai_chinh": financials["group"],
                 "don_vi": "đồng (bảng trong báo cáo hiển thị triệu đồng)",
             },
+            "tin_dung_cic": {k: v for k, v in cic.items() if k != "rows"},
+            # [BRD 16/10] the group is decided in code; the LLM words the conclusion around it.
+            "phan_nhom_doanh_nghiep": corp,
+            "loai_hinh_kinh_doanh": {"ma": btype, "ghi_chu": btype_note},
             "thu_nhap_ghi_nhan": {
                 **income,
                 "gia_tri_trieu_dong": financial_metrics.fmt(income["value"]),
-                "cong_thuc": "(LNST hợp lý - Nghĩa vụ TDH của DN + Khấu hao) x Tỷ lệ góp vốn",
+                "cong_thuc": "(LNST hợp lý − LNST sử dụng trả nợ TDH) × Tỷ lệ góp vốn",
             },
-            "dau_hieu_bad_corp": bad_corp_signals(items, financials, as_of),
+            "dia_chi_tsc_tren_dkkd": next((e["value"] for e in items[1]["summary"].values()
+                                           if e.get("field") == "head_office_address"), None),
+            "bang_nganh_tcb": (INDUSTRY_TABLE_FILE.read_text(encoding="utf-8")
+                               if INDUSTRY_TABLE_FILE.is_file() else "Chưa có bảng ngành TCB trong repo"),
             "ho_so": [{"file": d["filename"], "loai": d["label"], "nguon": d["source"],
                        "doc_bang": d["read_method"]} for d in documents_view],
             "trich_doan_ho_so": _excerpts(documents),
@@ -230,13 +267,18 @@ class CorpIncomeAnalysis:
             "unknown_placeholders": [],
         })
 
-        markdown = render_markdown(base, template_text, ctx)
+        # [BRD 16/10] "hiển thị khi …" rules (empty partner rows, no business plan).
+        markdown = apply_output_conditions(render_markdown(base, template_text, ctx), ctx)
         return {
             "response": markdown,
             "meta": meta,
             "items": {str(number): item for number, item in items.items()},
             "financials": financials,
             "income_estimate": income,
+            "cic": {k: v for k, v in cic.items() if k != "rows"} | {
+                "rows": {k: {f: (sorted(x) if isinstance(x, set) else x) for f, x in row.items()}
+                         for k, row in cic.get("rows", {}).items()}},
+            "corp_group": corp,
             "records": records,
             "documents": documents_view,
         }

@@ -1,0 +1,140 @@
+"""[BRD 16/10] One test per rule added by the BRD of 16/10/2026 (no LLM needed).
+
+    python -m unittest testing.test_brd_1610
+"""
+
+import unittest
+from datetime import date
+
+from src.agents.calculator import cic_metrics
+from src.agents.calculator import financial_metrics as fm
+from src.utils.report.appendix_context import apply_output_conditions
+
+AS_OF = date(2026, 10, 16)
+M = 1e6  # triệu đồng → đồng
+
+
+def fin(document, periods, audited=True, **extra):
+    return {"pass": "financial", "document": document, "source": "customer",
+            "data": {"audited": audited, "periods": periods, **extra}}
+
+
+def year(y, **values):
+    return {"period": str(y), "period_type": "year", **{k: v * M for k, v in values.items()}}
+
+
+GOOD_2025 = year(2025, total_assets=100, total_capital=100, total_liabilities=40, equity=60,
+                 current_assets=60, current_liabilities=30, net_revenue=900, profit_before_tax=50,
+                 profit_after_tax=40, retained_earnings=70)
+GOOD_2024 = year(2024, total_assets=90, total_capital=90, net_revenue=800, retained_earnings=30,
+                 profit_after_tax=35)
+
+
+class FinancialRulesTest(unittest.TestCase):
+    def test_tt133_statement_is_split_by_rule_1(self):
+        r = fm.compute([fin("BCTC_TT133.pdf", [year(2025, total_assets=100, cash=10, receivables=20,
+                                                         inventory=30, other_assets=5, total_liabilities=40,
+                                                         equity=60, net_revenue=50, profit_after_tax=2)])], AS_OF)
+        fig = r["years"]["2025"]
+        self.assertEqual((fig["current_assets"], fig["non_current_assets"]), (65 * M, 35 * M))
+        self.assertEqual((fig["current_liabilities"], fig["long_term_liabilities"]), (40 * M, 0))
+        self.assertAlmostEqual(r["ratios"]["2025"]["current_ratio"], 65 / 40)
+
+    def test_good_finance_needs_all_three_criteria(self):
+        r = fm.compute([fin("BCTC_2025.pdf", [GOOD_2025, GOOD_2024])], AS_OF)
+        self.assertEqual(r["group"], "Good finance")
+        self.assertEqual(r["material_warnings"], [])
+
+    def test_opening_balance_differs_from_previous_closing(self):
+        r = fm.compute([fin("BCTC_2025.pdf", [GOOD_2025, GOOD_2024]),
+                        fin("BCTC_2024.pdf", [year(2024, total_assets=95)])], AS_OF)
+        self.assertTrue(any("cuối kỳ năm trước ≠ đầu kỳ năm sau" in w for w in r["material_warnings"]))
+        self.assertEqual(r["group"], "Bad finance")
+
+    def test_retained_earnings_jump_above_profit(self):
+        bad = dict(GOOD_2025, retained_earnings=200 * M)     # +170 vs LNST 40
+        r = fm.compute([fin("BCTC_2025.pdf", [bad, GOOD_2024])], AS_OF)
+        self.assertTrue(any("LNST chưa phân phối" in w for w in r["material_warnings"]))
+
+    def test_cit_rate_off_20_percent_is_a_warning_not_material(self):
+        low_tax = dict(GOOD_2025, profit_after_tax=49 * M)    # tax 2%
+        r = fm.compute([fin("BCTC_2025.pdf", [low_tax, GOOD_2024])], AS_OF)
+        self.assertTrue(any("Thuế TNDN" in w for w in r["other_warnings"]))
+        self.assertFalse(any("Thuế TNDN" in w for w in r["material_warnings"]))
+
+    def test_status_remarks_segment_and_efficiency(self):
+        weak = dict(GOOD_2025, other_income=15 * M, financial_income=5 * M, gross_profit=100 * M,
+                    interest_expense=60 * M)
+        r = fm.compute([fin("BCTC_2025.pdf", [weak, GOOD_2024])], AS_OF)
+        text = " ".join(r["status_remarks"])
+        self.assertIn("phân khúc SME", text)                   # 900 triệu < 200 tỷ
+        self.assertIn("(Thu nhập khác + DT tài chính) / LNTT", text)
+        self.assertIn("Chi phí lãi vay / LN gộp", text)
+
+    def test_vat_months_of_year_n_and_full_year_check(self):
+        vat_rows = [{"period_type": "month", "month": m, "year": 2026, "revenue": 100 * M} for m in range(1, 10)]
+        vat_rows += [{"period_type": "quarter", "quarter": q, "year": 2025, "revenue": 100 * M} for q in range(1, 5)]
+        records = [fin("BCTC_2025.pdf", [GOOD_2025, GOOD_2024]),
+                   {"pass": "vat", "document": "VAT.pdf", "data": {"returns": vat_rows}}]
+        r = fm.compute(records, AS_OF)
+        self.assertEqual(r["vat"]["current_year"], 2026)
+        self.assertIn("đến tháng 09/2026 là 900 triệu đồng, bằng 100,0% doanh thu năm 2025", r["vat"]["text"])
+        # 2025: VAT 400 vs BCTC 900 → -55,6% → material
+        self.assertTrue(any("tờ khai VAT cùng kỳ" in w for w in r["material_warnings"]))
+
+    def test_income_formula(self):
+        r = fm.compute([fin("BCTC_2025.pdf", [dict(GOOD_2025, financial_income=5 * M, other_income=3 * M,
+                                                    depreciation=10 * M)])], AS_OF)
+        income = fm.income_estimate(r, ownership_pct=50, annual_lt_principal=25 * M)
+        self.assertEqual(income["reasonable_lnst"], 32 * M)     # 40 - 5 - 3
+        self.assertEqual(income["lnst_for_lt_debt"], 15 * M)    # 25 - 10
+        self.assertEqual(income["value"], 8.5 * M)              # (32 - 15) x 50%
+
+
+    def test_segments_by_revenue(self):
+        for revenue_ty, segment in ((2500, "Large corp"), (700, "MM"), (300, "USME"), (50, "SME")):
+            r = fm.compute([fin("B.pdf", [year(2025, net_revenue=revenue_ty * 1000)])], AS_OF)
+            self.assertIn(f"phân khúc {segment}", r["status_remarks"][0])
+
+
+class CicRulesTest(unittest.TestCase):
+    def s10a(self, **data):
+        base = {"report_type": "S10A", "query_date": "10/10/2026", "lenders": [
+            {"name": "Techcombank CN Hà Nội", "short_term": 100 * M, "long_term": 50 * M},
+            {"name": "Vietcombank", "short_term": 20 * M, "off_balance": 5 * M}],
+            "special_mention_12m": [], "bad_debt_5y": [],
+            "monthly_balances_12m": [{"month": f"{m:02d}/2026", "balance": 150 * M} for m in range(1, 13)]}
+        return {"pass": "cic", "document": "S10A.pdf", "data": {**base, **data}}
+
+    def test_table_split_and_good_bureau(self):
+        r = cic_metrics.compute([self.s10a()], AS_OF, revenue_prev_year=900 * M, business_type="thuong_mai")
+        self.assertEqual(r["rows"]["TCB"]["total"], 150 * M)
+        self.assertEqual(r["rows"]["OtherBank"]["total"], 25 * M)      # incl. ngoại bảng
+        self.assertAlmostEqual(r["leverage"], 150 / 75)                 # 150 / (900/12)
+        self.assertEqual(r["group"], "Good bureau")
+
+    def test_special_mention_in_12_months_is_bad_bureau(self):
+        r = cic_metrics.compute([self.s10a(special_mention_12m=[{"lender": "VCB", "date": "05/2026"}])],
+                                AS_OF, revenue_prev_year=900 * M)
+        self.assertEqual(r["group"], "Bad bureau")
+
+    def test_old_report_is_flagged(self):
+        r = cic_metrics.compute([self.s10a(query_date="01/08/2026")], AS_OF, revenue_prev_year=900 * M)
+        self.assertTrue(any("quá 1 tháng" in w for w in r["warnings"]))
+
+
+class OutputConditionsTest(unittest.TestCase):
+    def test_empty_partner_rows_are_removed_and_plan_table_hidden(self):
+        md = ("<table><tr><td>Công ty A (500 tr)</td><td></td><td></td><td></td></tr>"
+              "<tr><td>—</td><td></td><td></td><td></td></tr></table>\n"
+              "### 5. Phương án kinh doanh (nếu có)\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n"
+              "**Nhận xét về phương án kinh doanh**\n\nKhông có.")
+        out = apply_output_conditions(md, {"_has_plan": ""})
+        self.assertIn("Công ty A", out)
+        self.assertNotIn("<td>—</td>", out)
+        self.assertNotIn("| a | b |", out)
+        self.assertIn("**Nhận xét về phương án kinh doanh**", out)
+
+
+if __name__ == "__main__":
+    unittest.main()

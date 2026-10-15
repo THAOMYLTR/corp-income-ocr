@@ -63,7 +63,13 @@ def write_excel(result: dict[str, Any], path: str | Path) -> Path:
     _sheet(wb, "Tóm tắt", ["Mục", "Nội dung", "Kết luận"],
            [[n, item["title"], item["conclusion"]] for n, item in items.items()]
            + [[], ["", "Ngày tham chiếu", meta["as_of"]],
-              ["", "KH cá nhân vay vốn", ", ".join(meta["borrower_names"]) or "—"]],
+              ["", "KH cá nhân vay vốn", ", ".join(meta["borrower_names"]) or "—"]]
+           # [BRD 16/10] groups (POC)
+           + ([[], ["", "Phân nhóm doanh nghiệp", result["corp_group"]["group"]],
+               ["", "Phân nhóm tài chính", result["corp_group"]["finance"]],
+               ["", "Phân nhóm bureau", result["corp_group"]["bureau"]]]
+              + [["", "Tiêu chí Bad corp", r] for r in result["corp_group"]["bad_reasons"]]
+              if result.get("corp_group") else []),
            [6, 45, 100])
 
     _sheet(wb, "1. Pháp lý cơ bản", ["Thông tin", "Giá trị", "Nguồn"],

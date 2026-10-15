@@ -57,6 +57,10 @@ class DocumentType:
     liabilities_extraction: bool = False
     # Báo cáo tài chính → Phụ lục 01 mục 3 (tài chính doanh nghiệp).
     financial_extraction: bool = False
+    # [BRD 16/10] tờ khai VAT (mục 3/5), bản tin CIC (mục 4), phương án kinh doanh (mục 5).
+    vat_extraction: bool = False
+    cic_extraction: bool = False
+    plan_extraction: bool = False
 
     @property
     def routing_signature(self) -> frozenset[str]:
@@ -337,6 +341,9 @@ def _load(path: Path) -> DocumentMatrix:
                 legal_rep_extraction=bool(entry.get("legal_rep_extraction", False)),
                 liabilities_extraction=bool(entry.get("liabilities_extraction", False)),
                 financial_extraction=bool(entry.get("financial_extraction", False)),
+                vat_extraction=bool(entry.get("vat_extraction", False)),
+                cic_extraction=bool(entry.get("cic_extraction", False)),
+                plan_extraction=bool(entry.get("plan_extraction", False)),
             )
 
     if not types:
@@ -466,6 +473,22 @@ def is_financial_type(type_id: str) -> bool:
 
     doc = get_type(type_id)
     return bool(doc and doc.financial_extraction)
+
+
+# [BRD 16/10] one lookup per new pass, same shape as the ones above.
+def is_vat_type(type_id: str) -> bool:
+    doc = get_type(type_id)
+    return bool(doc and doc.vat_extraction)
+
+
+def is_cic_type(type_id: str) -> bool:
+    doc = get_type(type_id)
+    return bool(doc and doc.cic_extraction)
+
+
+def is_plan_type(type_id: str) -> bool:
+    doc = get_type(type_id)
+    return bool(doc and doc.plan_extraction)
 
 
 def describe_types_for_prompt(group_id: str = "") -> str:

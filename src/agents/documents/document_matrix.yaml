@@ -115,6 +115,9 @@ groups:
           - "danh sach thanh vien"
           - "giay chung nhan phan von gop"
           - "so co phan"
+          # [BRD 16/10] sổ chứng nhận lưu ký (CTCP) — same priority as the register
+          - "so chung nhan luu ky"
+          - "chung nhan luu ky"
 
       - id: chuyen_nhuong_von
         stt: "I.4"
@@ -295,9 +298,10 @@ groups:
         label: "Tờ khai thuế giá trị gia tăng (tháng / quý)"
         requirement:
           cap_moi: ""
-        # Recognised so it is named correctly; BRD items 1-4 read nothing from it.
+        # [BRD 16/10] Nguyên tắc 2: doanh thu theo tờ khai (pass M6).
         agents: {}
         source: customer
+        vat_extraction: true
         filename_keywords:
           - "vat"
           - "gtgt"
@@ -312,9 +316,12 @@ groups:
         requirement:
           cap_moi: ""
         # Read by the report writer for Phụ lục 01 mục 2 (đầu vào / đầu ra).
+        # [BRD 16/10] + sổ chi tiết TK 131/331, hợp đồng thuê (đi thuê / sở hữu).
         agents: {}
         source: customer
         filename_keywords:
+          - "131"
+          - "331"
           - "hop dong"
           - "hdkt"
           - "hoa don"
@@ -324,6 +331,10 @@ groups:
           - "hop dong mua ban"
           - "hoa don gia tri gia tang"
           - "sao ke tai khoan"
+          - "so chi tiet"
+          - "phai thu khach hang"
+          - "phai tra nguoi ban"
+          - "hop dong thue"
 
   # ===========================================================================
   - id: ho_so_vay_von
@@ -338,10 +349,15 @@ groups:
         label: "Giấy đề nghị cấp tín dụng / phương án vay vốn"
         requirement:
           cap_moi: ""
-        # Recognised so it is named correctly; BRD items 1-4 read nothing from it.
+        # [BRD 16/10] Phụ lục 01 mục 5: số kế hoạch + cơ sở của KH (pass M8).
         agents: {}
         source: customer
+        plan_extraction: true
+        filename_keywords:
+          - "pakd"
+          - "phuong an"
         keywords:
+          - "ke hoach kinh doanh"
           - "giay de nghi vay von"
           - "de nghi cap tin dung"
           - "phuong an vay von"
@@ -444,10 +460,14 @@ groups:
         requirement:
           cap_moi: ""
         # Read by the report writer for Phụ lục 01 mục 4 (dư nợ tại TCTD).
+        # [BRD 16/10] S10A / R20 parsed by pass M7; figures computed in code.
         agents: {}
         source: external
+        cic_extraction: true
         filename_keywords:
           - "cic"
+          - "s10a"
+          - "r20"
         keywords:
           - "trung tam thong tin tin dung"
           - "bao cao thong tin tin dung"

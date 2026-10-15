@@ -276,8 +276,10 @@ unknown name renders as "—" and is named in the step log.
 
 ```bash
 python -m unittest testing.test_prompts testing.test_config testing.test_document_classification \
-    testing.test_reading testing.test_corp_income_workflow
+    testing.test_reading testing.test_corp_income_workflow testing.test_brd_1610
 ```
+
+`test_brd_1610` has one test per rule of the BRD of 16/10/2026 (see `docs/CHANGES-BRD-1610.md`).
 
 `test_corp_income_workflow` runs the whole graph on a small dossier with fake extraction chains
 (no API key); `test_reading` reads a real digital PDF, a Word file, a scanned PDF and a photo

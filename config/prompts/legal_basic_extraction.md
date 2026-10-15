@@ -31,6 +31,12 @@ QUY TẮC RIÊNG:
   ngày ..." mà không nói thay đổi gì thì vẫn ghi một dòng với fields_changed [].
 - "site_visit": CHỈ điền khi văn bản là báo cáo thực địa/khảo sát. Ghi điều cán
   bộ QUAN SÁT được, không ghi ý kiến.
+- [BRD 16/10] "t24_id": mã khách hàng (CIF/ID) trên hệ thống T24 — CHỈ khi văn bản là
+  bản in hệ thống nội bộ TCB (T24, BCDE, BEP, DBX). Văn bản khác để ''.
+- [BRD 16/10] "business_type": loại hình hoạt động CHÍNH khi văn bản nêu rõ (thường là
+  báo cáo thực địa hoặc dữ liệu thẩm định nội bộ): "san_xuat" | "thuong_mai" |
+  "dich_vu_xay_lap" | "dich_vu_khac" | ''. Đa loại hình thì chọn loại có tỷ trọng
+  lớn nhất và ghi tỷ trọng vào "business_type_note".
 
 Trả về CHÍNH XÁC JSON sau, không thêm text:
 {
@@ -48,6 +54,9 @@ Trả về CHÍNH XÁC JSON sau, không thêm text:
   "legal_representatives": ["họ tên người đại diện theo pháp luật"],
   "operating_status": "dang_hoat_dong | tam_ngung | ngung_hoat_dong | giai_the | pha_san | khac | ''",
   "status_as_of": "ngày tra cứu/ngày ghi nhận tình trạng, hoặc ''",
+  "t24_id": "mã KH trên T24, hoặc ''",
+  "business_type": "san_xuat | thuong_mai | dich_vu_xay_lap | dich_vu_khac | ''",
+  "business_type_note": "tỷ trọng các loại hình nếu văn bản nêu, hoặc ''",
   "change_history": [
     {"date": "...", "change_number": <số hoặc null>, "fields_changed": ["name | capital | address | legal_rep | members | business_lines | other"],
       "before": "nội dung trước, hoặc ''", "after": "nội dung sau, hoặc ''", "page": <số hoặc null>}

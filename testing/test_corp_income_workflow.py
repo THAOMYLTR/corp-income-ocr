@@ -89,7 +89,7 @@ class FakeWriterChain:
     def invoke(self, payload):
         self.seen.append(payload)
         names = [json.loads(line)["o"] for line in payload["fields"].splitlines()]
-        return {name: f"LLM:{name}" for name in names if name != "KetLuan"}
+        return {name: f"LLM:{name}" for name in names if name != "KetLuanNguonThuDoanhNghiep"}
 
 
 def supervisor_with_fakes(calls: list) -> Supervisor:
@@ -200,8 +200,10 @@ class AppendixTemplateTest(CorpIncomeWorkflowTest):
 
     def test_legal_cells_come_from_the_documents(self):
         report = self.result["response"]
-        self.assertIn("| Mã số thuế | 0101234568 |", report)  # external lookup wins
-        self.assertIn("| Năm thành lập | 2015 |", report)
+        # [BRD 16/10] ĐKKD first, and the mismatch with the tax lookup is marked
+        self.assertIn("| Mã số thuế | 0101234567 ⚠ không khớp giữa các nguồn |", report)
+        self.assertIn("| Năm thành lập | 2015 (Đăng ký lần đầu 12/05/2015; thay đổi lần thứ 6 ngày 20/03/2026) |",
+                      report)
         self.assertIn("| Nguyễn Văn A | Khách hàng vay vốn | 60% | Có — nhận vốn góp ngày 20/03/2026 |", report)
         self.assertNotIn("{{", report)
 
@@ -210,25 +212,27 @@ class AppendixTemplateTest(CorpIncomeWorkflowTest):
         self.assertIn("<td>{}</td>".format("70.000"), report)          # DTT 2025, triệu đồng
         self.assertIn("<td>-30,0%</td>", report)                       # 70.000 / 100.000 - 1
         self.assertIn("<td>0,94</td>", report)                         # 30.000 / 32.000
-        warnings = self.result["corp_income"]["financials"]["warnings"]
-        self.assertTrue(any("giảm 30,0%" in w for w in warnings))
-        self.assertTrue(any("thanh toán hiện hành < 1" in w for w in warnings))
+        remarks = self.result["corp_income"]["financials"]["status_remarks"]
+        self.assertTrue(any("HĐKD của KH suy giảm" in r for r in remarks))
+        self.assertTrue(any("< 1" in r for r in remarks))
+        # [BRD 16/10] LNST hợp lý = LNST - DT tài chính - thu nhập khác (none printed → 0);
+        # no TDH principal given → 0; x 60%.
         income = self.result["corp_income"]["income_estimate"]
-        self.assertEqual(income["value"], (2_000e6 + 500e6) * 60 / 100)
+        self.assertEqual(income["value"], 2_000e6 * 60 / 100)
 
     def test_writer_gets_only_the_narrative_cells_and_the_evidence(self):
         meta = self.result["corp_income"]["meta"]
         self.assertIn("NhanXetHDKD", meta["llm_placeholders"])
-        self.assertIn("KetLuan", meta["llm_placeholders"])
-        for code_cell in ("MST", "ThanhVien1", "DTT2025", "ROS2024", "TongTaiSanCurrent"):
+        self.assertIn("KetLuanNguonThuDoanhNghiep", meta["llm_placeholders"])
+        for code_cell in ("MST", "ThanhVien1", "DTT2025", "ROS2024", "TongTaiSanCurrent",
+                          "KetLuan", "NhanXet", "NhanXetTaiChinh", "NhanXetDuNo", "TCB_ST"):
             self.assertNotIn(code_cell, meta["llm_placeholders"])
         evidence = json.loads(self.writer_payloads[0]["evidence"])
-        self.assertTrue(evidence["dau_hieu_bad_corp"])
+        self.assertEqual(evidence["phan_nhom_doanh_nghiep"]["group"], "Bad corp")   # MST mismatch
         self.assertIn("VAT01.2025.txt", {e["file"] for e in evidence["trich_doan_ho_so"]})
         report = self.result["response"]
         self.assertIn("LLM:NhanXetHDKD", report)
-        self.assertIn("Chưa có thông tin trong hồ sơ", report)          # KetLuan left empty by the fake
-        self.assertIn("1 cell(s) empty", meta["writer_error"])
+        self.assertIn("1 cell(s) empty", meta["writer_error"])           # fake leaves one cell empty
 
 
 class OcrFallbackTest(unittest.TestCase):

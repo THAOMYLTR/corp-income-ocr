@@ -23,6 +23,9 @@ AMOUNT_FIELDS = (
     "net_revenue", "cogs", "gross_profit", "financial_income", "financial_expenses",
     "selling_expenses", "admin_expenses", "operating_profit", "other_profit",
     "profit_before_tax", "profit_after_tax", "depreciation",
+    # [BRD 16/10] TT133 components, retained earnings, other income, interest expense
+    "cash", "short_term_investments", "receivables", "inventory", "other_assets",
+    "retained_earnings", "other_income", "interest_expense",
 )
 
 

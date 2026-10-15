@@ -170,6 +170,10 @@ class Config:
     # the template's narrative placeholders from the extracted evidence.
     financial_extraction_llm: Any = None
     report_writer_llm: Any = None
+    # [BRD 16/10] Optional: left None, these passes use financial_extraction_llm.
+    vat_extraction_llm: Any = None
+    cic_extraction_llm: Any = None
+    plan_extraction_llm: Any = None
     max_files: int = 50
     max_chars_per_document: int = 120_000
     max_extraction_calls: int = 60

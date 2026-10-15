@@ -19,6 +19,10 @@ PROMPTS: dict[str, frozenset[str]] = {
     # Phụ lục 01: financial statements, and the report writer rules (the guidance
     # itself lives next to the template: src/templates/corp-income-guidance.md).
     "financial_extraction": frozenset(),
+    # [BRD 16/10] VAT returns, CIC S10A/R20, customer business plan.
+    "vat_extraction": frozenset(),
+    "cic_extraction": frozenset(),
+    "plan_extraction": frozenset(),
     "report_writer": frozenset(),
     "report_writer_user": frozenset(),
     "extraction_user": frozenset(),

@@ -58,6 +58,10 @@ class ClassifiedDocument:
     is_legal_rep: bool = False
     is_liabilities: bool = False
     is_financial: bool = False
+    # [BRD 16/10] new passes M6-M8
+    is_vat: bool = False
+    is_cic: bool = False
+    is_plan: bool = False
     legal_basic_extraction: dict[str, Any] | None = None
     legal_basic_extraction_error: str = ""
     shareholders_extraction: dict[str, Any] | None = None
@@ -68,6 +72,12 @@ class ClassifiedDocument:
     liabilities_extraction_error: str = ""
     financial_extraction: dict[str, Any] | None = None
     financial_extraction_error: str = ""
+    vat_extraction: dict[str, Any] | None = None
+    vat_extraction_error: str = ""
+    cic_extraction: dict[str, Any] | None = None
+    cic_extraction_error: str = ""
+    plan_extraction: dict[str, Any] | None = None
+    plan_extraction_error: str = ""
 
 
 class UnderwritingGraphState(TypedDict, total=False):
