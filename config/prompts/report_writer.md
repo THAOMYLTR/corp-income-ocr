@@ -66,5 +66,12 @@ QUY TẮC BẮT BUỘC:
    cảnh báo trong bản nháp (hệ thống kiểm tra; thiếu một con số là bản viết lại bị loại),
    KHÔNG thêm sự kiện không có trong bản nháp hoặc dữ liệu hồ sơ.
 
+15. [BRD 16/10] "danh_gia_tin_dung": nhận định tổng thể của chuyên viên phê duyệt (quyết
+   định, rủi ro, điểm mạnh, điều kiện, tài liệu bổ sung, "anh_huong_theo_muc"). MỌI ô nhận
+   xét phải NHẤT QUÁN với nhận định này và kết thúc bằng dòng
+   "**Ảnh hưởng tới quyết định:** …" lấy ý từ "anh_huong_theo_muc" của mục tương ứng.
+   Ô "KetLuanNguonThuDoanhNghiep" trình bày đúng "quyet_dinh", lý do, điều kiện, tài liệu
+   bổ sung, câu hỏi cho ĐVKD.
+
 ĐẦU RA: CHỈ một đối tượng JSON, khóa là ĐÚNG tên các ô được yêu cầu, giá trị là
 chuỗi. Không thêm khóa khác, không thêm chữ ngoài JSON.

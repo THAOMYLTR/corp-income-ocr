@@ -69,7 +69,14 @@ def write_excel(result: dict[str, Any], path: str | Path) -> Path:
                ["", "Phân nhóm tài chính", result["corp_group"]["finance"]],
                ["", "Phân nhóm bureau", result["corp_group"]["bureau"]]]
               + [["", "Tiêu chí Bad corp", r] for r in result["corp_group"]["bad_reasons"]]
-              if result.get("corp_group") else []),
+              if result.get("corp_group") else [])
+           # [BRD 16/10] overall credit view
+           + ([[], ["", "Đề xuất", (result.get("credit_assessment") or {}).get("quyet_dinh", "")],
+               ["", "Tóm tắt", (result.get("credit_assessment") or {}).get("tom_tat", "")]]
+              + [["", f"Rủi ro ({r.get('muc_do', '')})", f"{r.get('noi_dung', '')} — {r.get('can_cu', '')}"]
+                 for r in (result.get("credit_assessment") or {}).get("rui_ro", []) if isinstance(r, dict)]
+              + [["", "Điều kiện", d] for d in (result.get("credit_assessment") or {}).get("dieu_kien", [])]
+              if result.get("credit_assessment") else []),
            [6, 45, 100])
 
     _sheet(wb, "1. Pháp lý cơ bản", ["Thông tin", "Giá trị", "Nguồn"],

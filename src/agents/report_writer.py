@@ -75,6 +75,68 @@ def build_writer_chain(llm: Any):
     return prompt | llm | JsonOutputParser()
 
 
+def fit_payload(evidence: dict[str, Any], limit: int = MAX_EVIDENCE_CHARS) -> str:
+    """JSON of the evidence within ``limit`` characters.
+
+    [BRD 16/10] Shrinks the document excerpts first (halving each round) instead of cutting
+    the JSON at the end, so the field report and contracts are never dropped whole.
+    """
+
+    payload = json.dumps(evidence, ensure_ascii=False, default=str)
+    excerpts = evidence.get("trich_doan_ho_so") or []
+    size = max((len(e.get("noi_dung", "")) for e in excerpts), default=0)
+    while len(payload) > limit and size > 300:
+        size //= 2
+        evidence = {**evidence, "trich_doan_ho_so": [{**e, "noi_dung": e.get("noi_dung", "")[:size]}
+                                                     for e in excerpts]}
+        payload = json.dumps(evidence, ensure_ascii=False, default=str)
+    return payload if len(payload) <= limit else payload[:limit] + "…(cắt bớt)"
+
+
+# --------------------------------------------------------------------------- #
+# [BRD 16/10] Step 1 — the credit approver's overall view
+# --------------------------------------------------------------------------- #
+DECISIONS = ("Sử dụng", "Sử dụng có điều kiện", "Không sử dụng")
+
+
+def build_assessment_chain(llm: Any):
+    system = "GUIDANCE:\n" + load_guidance() + "\n\n" + system_prompt("credit_assessment")
+    prompt = ChatPromptTemplate.from_messages(
+        [SystemMessage(content=system), ("human", system_prompt("credit_assessment_user"))]
+    )
+    return prompt | llm | JsonOutputParser()
+
+
+def assess_credit(llm: Any, evidence: dict[str, Any], corp_group: str) -> tuple[dict[str, Any], str]:
+    """One call that decides the "so what" before any cell is written.
+
+    The decision cannot contradict the code's corp group: Bad corp is always
+    "Không sử dụng", Normal corp is never plain "Sử dụng" (at most "có điều kiện").
+    """
+
+    if llm is None:
+        return {}, ""
+    try:
+        answer = build_assessment_chain(llm).invoke({"evidence": fit_payload(evidence)})
+    except Exception as exc:  # noqa: BLE001
+        return {}, f"Credit assessment failed: {explain_llm_error(exc)}"
+    if not isinstance(answer, dict) or not answer:
+        return {}, "Credit assessment returned no JSON."
+    decision = answer.get("quyet_dinh")
+    forced = ""
+    if corp_group == "Bad corp" and decision != "Không sử dụng":
+        forced = "Không sử dụng"
+    elif corp_group == "Normal corp" and decision == "Sử dụng":
+        forced = "Sử dụng có điều kiện"
+    elif decision not in DECISIONS:
+        forced = "Sử dụng có điều kiện" if corp_group != "Bad corp" else "Không sử dụng"
+    if forced:
+        answer["quyet_dinh_llm"] = decision
+        answer["quyet_dinh"] = forced
+        return answer, f"Credit decision set to '{forced}' by the corp group ({corp_group}); LLM said '{decision}'."
+    return answer, ""
+
+
 def describe_fields(template: str, names: list[str]) -> str:
     """Each name with the template line it sits on, so the LLM knows its meaning,
     and [BRD 16/10] its writing frame from corp-income-cell-specs.md ("cau_truc")."""
@@ -113,9 +175,7 @@ def write_placeholders(
     fallback = {name: NO_INFO for name in names}
     if llm is None:
         return fallback, "No report_writer_llm configured — narrative cells left as 'Chưa có thông tin'."
-    payload = json.dumps(evidence, ensure_ascii=False, default=str)
-    if len(payload) > MAX_EVIDENCE_CHARS:
-        payload = payload[:MAX_EVIDENCE_CHARS] + "…(cắt bớt)"
+    payload = fit_payload(evidence)
     try:
         answer = build_writer_chain(llm).invoke(
             {"fields": describe_fields(template, names), "evidence": payload}

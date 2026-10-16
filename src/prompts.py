@@ -25,6 +25,9 @@ PROMPTS: dict[str, frozenset[str]] = {
     "plan_extraction": frozenset(),
     "report_writer": frozenset(),
     "report_writer_user": frozenset(),
+    # [BRD 16/10] overall credit view written before the cells
+    "credit_assessment": frozenset(),
+    "credit_assessment_user": frozenset(),
     "extraction_user": frozenset(),
     # LLM tie-break for document classification.
     "document_classification": frozenset({"document_type_catalogue"}),

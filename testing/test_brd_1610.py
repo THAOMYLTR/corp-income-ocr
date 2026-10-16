@@ -147,6 +147,43 @@ class WriterFramesTest(unittest.TestCase):
         self.assertEqual(keeps_every_number("HSTT 0,94.", "HSTT là 0,94 (thấp)"), [])
 
 
+class CreditAssessmentTest(unittest.TestCase):
+    """[BRD 16/10] The overall decision can never contradict the code's corp group."""
+
+    def run_with(self, decision, group):
+        from unittest import mock
+        from src.agents import report_writer as rw
+
+        class Fake:
+            def invoke(self, payload):
+                return {"quyet_dinh": decision, "tom_tat": "x"}
+
+        with mock.patch.object(rw, "build_assessment_chain", lambda llm: Fake()):
+            return rw.assess_credit(object(), {"a": 1}, group)
+
+    def test_bad_corp_is_always_not_used(self):
+        answer, note = self.run_with("Sử dụng", "Bad corp")
+        self.assertEqual(answer["quyet_dinh"], "Không sử dụng")
+        self.assertIn("set to 'Không sử dụng'", note)
+
+    def test_normal_corp_is_at_most_conditional(self):
+        answer, _ = self.run_with("Sử dụng", "Normal corp")
+        self.assertEqual(answer["quyet_dinh"], "Sử dụng có điều kiện")
+
+    def test_good_corp_keeps_the_llm_decision(self):
+        answer, note = self.run_with("Sử dụng", "Good corp")
+        self.assertEqual((answer["quyet_dinh"], note), ("Sử dụng", ""))
+
+    def test_payload_shrinks_excerpts_not_the_rest(self):
+        from src.agents.report_writer import fit_payload
+        evidence = {"phan_nhom": "Normal corp", "trich_doan_ho_so": [{"file": f"f{i}", "noi_dung": "x" * 5000}
+                                                                    for i in range(10)]}
+        payload = fit_payload(evidence, limit=20_000)
+        self.assertLessEqual(len(payload), 20_000)
+        self.assertIn('"phan_nhom": "Normal corp"', payload)
+        self.assertIn('"file": "f9"', payload)                  # every document still there
+
+
 class RelativeYearsTest(unittest.TestCase):
     """[BRD 16/10] {{Nam-1}} / {{DTTN-1}}: the table follows the BCTC years, not 2024/2025."""
 

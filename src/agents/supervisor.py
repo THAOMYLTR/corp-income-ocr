@@ -518,6 +518,9 @@ class Supervisor:
             steps.append(f"Tài chính: {warning}")
         steps.append(f"Phân nhóm: {analysis['corp_group']['group']} — {analysis['corp_group']['finance']}; "
                      f"{analysis['corp_group']['bureau']}")
+        if analysis.get("credit_assessment"):
+            steps.append(f"Nhận định tín dụng: {analysis['credit_assessment'].get('quyet_dinh')} — "
+                         f"{analysis['credit_assessment'].get('tom_tat', '')}")
         if meta["writer_error"]:
             steps.append(f"WARNING: {meta['writer_error']}")
         output = self._build_state(
@@ -531,7 +534,7 @@ class Supervisor:
             loan_program=state.get("loan_program", ""),
             corp_income={key: analysis[key] for key in
                          ("meta", "items", "financials", "income_estimate", "cic", "corp_group",
-                          "records", "documents")},
+                          "credit_assessment", "records", "documents")},
         )
         return {**state, "output_state": output}
 

@@ -30,7 +30,7 @@ from src.agents.extraction import (
     liabilities_extraction,
     shareholders_extraction,
 )
-from src.agents.report_writer import NO_INFO, keeps_every_number, write_placeholders
+from src.agents.report_writer import NO_INFO, assess_credit, keeps_every_number, write_placeholders
 from src.types import ClassifiedDocument
 from src.agents.calculator import cic_metrics
 from src.utils.paths import PROJECT_ROOT
@@ -266,7 +266,11 @@ class CorpIncomeAnalysis:
             "du_lieu_noi_bo_ngoai": {k: v for k, v in reference_data.items() if k != "watchlist"},
         }
         evidence["ban_nhap_code"] = drafts
+        # [BRD 16/10] Step 1: one overall credit view; step 2: every cell is written from it.
+        assessment, assessment_note = assess_credit(self.llm, evidence, corp["group"])
+        evidence["danh_gia_tin_dung"] = assessment
         written, writer_error = write_placeholders(self.llm, template_body, remaining, evidence)
+        writer_error = "; ".join(x for x in (assessment_note, writer_error) if x)
         rejected = []
         for name, draft in drafts.items():
             missing = keeps_every_number(draft, written.get(name, ""))
@@ -296,6 +300,7 @@ class CorpIncomeAnalysis:
                 "rows": {k: {f: (sorted(x) if isinstance(x, set) else x) for f, x in row.items()}
                          for k, row in cic.get("rows", {}).items()}},
             "corp_group": corp,
+            "credit_assessment": assessment,
             "records": records,
             "documents": documents_view,
         }
