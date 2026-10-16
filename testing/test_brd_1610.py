@@ -214,5 +214,33 @@ class OutputConditionsTest(unittest.TestCase):
         self.assertIn("**Nhận xét về phương án kinh doanh**", out)
 
 
+class RevenueGrowthGuardTest(unittest.TestCase):
+    """[Sửa 16/10] Biến động DT: không so năm thiếu tháng; cảnh báo số bất thường."""
+
+    @staticmethod
+    def _records(months_prev):
+        from src.agents.calculator import financial_metrics as fm  # noqa: F401
+        periods = [
+            {"period": "2024", "period_type": "year", "months": 12, "net_revenue": 49.09e9,
+             "cogs": 44.09e9, "gross_profit": 5e9},
+            {"period": "2023", "period_type": "year", "months": months_prev, "net_revenue": 10e9,
+             "cogs": 9e9, "gross_profit": 1e9},
+        ]
+        return [{"pass": "financial", "document": "BCTC.pdf", "data": {"audited": False, "periods": periods}}]
+
+    def test_partial_first_year_is_not_compared(self):
+        from src.agents.calculator import financial_metrics as fm
+        result = fm.compute(self._records(5))
+        self.assertIsNone(result["ratios"]["2024"]["revenue_growth"])
+        self.assertTrue(any("chỉ có 5 tháng" in w for w in result["other_warnings"]))
+
+    def test_extreme_growth_is_flagged(self):
+        from src.agents.calculator import financial_metrics as fm
+        result = fm.compute(self._records(12))
+        self.assertAlmostEqual(result["ratios"]["2024"]["revenue_growth"], 3.909, places=3)
+        self.assertTrue(any("bất thường, kiểm tra lại" in w for w in result["other_warnings"]))
+        self.assertFalse(any("≠ LN gộp" in w for w in result["other_warnings"]))
+
+
 if __name__ == "__main__":
     unittest.main()

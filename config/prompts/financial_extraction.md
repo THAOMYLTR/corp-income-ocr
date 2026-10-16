@@ -17,6 +17,8 @@ QUY TẮC BẮT BUỘC:
 - "period": năm "yyyy" cho kỳ cả năm; kỳ giữa niên độ ghi như in, ví dụ
   "6T/2026", "Q3/2026", "9T/2026". "period_type": "year" | "interim".
 - "end_date": ngày kết thúc kỳ "dd/mm/yyyy" nếu có.
+- [Sửa 16/10] "months": số tháng của kỳ báo cáo. Cả năm = 12. Năm đầu thành lập
+  (ví dụ "từ ngày 15/08/2023 đến 31/12/2023") ghi số tháng thực tế (5). Không rõ thì null.
 - Dùng mã số chỉ tiêu (theo Thông tư 200/133) khi có để chọn đúng dòng:
   Tổng tài sản (270/300), Tài sản ngắn hạn (100), Tài sản dài hạn (200),
   Nợ phải trả (300/C), Nợ ngắn hạn (310), Nợ dài hạn (330), Vốn chủ sở hữu
@@ -48,6 +50,7 @@ Trả về CHÍNH XÁC JSON sau, không thêm text:
       "period": "yyyy | 9T/2026 ...",
       "period_type": "year | interim",
       "end_date": "dd/mm/yyyy",
+      "months": 12,
       "total_assets": null, "current_assets": null, "non_current_assets": null,
       "total_liabilities": null, "current_liabilities": null, "long_term_liabilities": null,
       "equity": null, "total_capital": null,

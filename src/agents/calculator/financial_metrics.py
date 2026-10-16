@@ -50,6 +50,8 @@ LABELS = {
 
 # ---- thresholds (BRD 16/10) ------------------------------------------------- #
 REVENUE_DROP_ALERT = -0.20          # [TT][NF] biến động DT năm N < -20%
+# [Sửa 16/10] Biến động DT ngoài khoảng này → nghi đọc sai số / sai cột, cảnh báo kiểm tra lại.
+REVENUE_GROWTH_CHECK = (-0.80, 2.00)
 BALANCE_TOLERANCE = 0.005           # [BT] 0,5% — rounding in printed statements
 CIT_STANDARD_RATE = 0.20            # [BT] thuế TNDN phổ thông 20%
 CIT_TOLERANCE = 0.02                # [BT] ±2 điểm % trước khi cảnh báo
@@ -138,6 +140,9 @@ def merge_periods(records: list[dict[str, Any]]) -> dict[str, Any]:
                 if not year:
                     continue
                 target = years.setdefault(year, {"period": year})
+                # [Sửa 16/10] số tháng của kỳ (năm đầu thành lập < 12) — dùng khi tính biến động DT
+                if isinstance(period.get("months"), (int, float)) and "months" not in target:
+                    target["months"] = int(period["months"])
             for field in FIELDS:
                 value = _num(period.get(field))
                 if value is None:
@@ -262,6 +267,9 @@ def compute(records: list[dict[str, Any]], as_of: date | None = None) -> dict[st
         fig = years[year]
         prev = years[ordered[index - 1]] if index and int(ordered[index - 1]) == int(year) - 1 else {}
         growth = _ratio(fig.get("net_revenue"), prev.get("net_revenue"))
+        # [Sửa 16/10] Không so một năm đủ 12 tháng với năm không đủ (năm đầu thành lập).
+        if prev and (fig.get("months") or 12) != (prev.get("months") or 12):
+            growth = None
         ratios[year] = {
             "revenue_growth": None if growth is None else growth - 1,
             "ros": _ratio(fig.get("profit_after_tax"), fig.get("net_revenue")),
@@ -303,6 +311,18 @@ def compute(records: list[dict[str, Any]], as_of: date | None = None) -> dict[st
                 # Not "trọng yếu" on its own: some sectors / areas have legal tax incentives.
                 other.append(f"{year}: Thuế TNDN / LNTT = {pct(rate)} ≠ 20% — cần đánh giá lại "
                              "(trừ ngành nghề/địa bàn được ưu đãi thuế)")
+        # [Sửa 16/10] Kiểm tra đọc số: LN gộp phải = DTT − giá vốn; lệch → nghi đọc nhầm dòng/cột.
+        dtt, cogs, gross = fig.get("net_revenue"), fig.get("cogs"), fig.get("gross_profit")
+        if None not in (dtt, cogs, gross) and abs((dtt - abs(cogs)) - gross) > BALANCE_TOLERANCE * max(abs(dtt), 1):
+            other.append(f"{year}: DTT ({fmt(dtt)}) − Giá vốn ({fmt(abs(cogs))}) ≠ LN gộp ({fmt(gross)}) — "
+                         "nghi đọc sai số liệu, kiểm tra lại BCTC trước khi dùng các chỉ số")
+        if prev and (fig.get("months") or 12) != (prev.get("months") or 12):
+            other.append(f"{year}: không tính biến động DT vì năm {int(year) - 1} chỉ có "
+                         f"{prev.get('months') or 12} tháng (năm đầu thành lập)")
+        growth = ratios[year]["revenue_growth"]
+        if growth is not None and not REVENUE_GROWTH_CHECK[0] <= growth <= REVENUE_GROWTH_CHECK[1]:
+            other.append(f"{year}: biến động DT {pct(growth)} (DTT {fmt(prev.get('net_revenue'))} → "
+                         f"{fmt(fig.get('net_revenue'))}) — bất thường, kiểm tra lại số đọc / kỳ báo cáo")
     material += [f"Số liệu cuối kỳ năm trước ≠ đầu kỳ năm sau: {m}" for m in merged["cross_document"]]
     other += [f"Khoản mục bất thường: {u}" for u in merged["unusual_items"]]
 
