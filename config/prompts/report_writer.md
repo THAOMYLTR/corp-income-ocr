@@ -59,5 +59,12 @@ QUY TẮC BẮT BUỘC:
      địa.pdf) khác ngành đăng ký chính (tư vấn đầu tư — DKKD.pdf) → đề nghị ĐVKD xác nhận
      doanh thu theo từng ngành."
 
+13. [BRD 16/10] KHUNG TỪNG Ô: ô nào có "cau_truc" thì viết ĐÚNG khung đó — đúng thứ tự
+   các phần, đúng nhãn in đậm, bỏ phần không có nội dung. Không thêm phần ngoài khung.
+14. [BRD 16/10] "ban_nhap_code": bản nháp hệ thống đã viết cho một số ô nhận xét. Với
+   các ô này: VIẾT LẠI theo "cau_truc", GIỮ NGUYÊN mọi con số, tỷ lệ, ngày, tên và mọi
+   cảnh báo trong bản nháp (hệ thống kiểm tra; thiếu một con số là bản viết lại bị loại),
+   KHÔNG thêm sự kiện không có trong bản nháp hoặc dữ liệu hồ sơ.
+
 ĐẦU RA: CHỈ một đối tượng JSON, khóa là ĐÚNG tên các ô được yêu cầu, giá trị là
 chuỗi. Không thêm khóa khác, không thêm chữ ngoài JSON.

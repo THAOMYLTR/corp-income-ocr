@@ -131,6 +131,22 @@ class NumberTextTest(unittest.TestCase):
             self.assertEqual(to_number(text), number, text)
 
 
+class WriterFramesTest(unittest.TestCase):
+    def test_cell_frames_are_read_from_the_templates_folder(self):
+        from src.agents.report_writer import load_cell_specs
+        specs = load_cell_specs()
+        self.assertIn("NhanXetHDKD", specs)
+        self.assertIn("**Kết luận:**", specs["NhanXetHDKD"])
+
+    def test_number_guard(self):
+        from src.agents.report_writer import keeps_every_number
+        draft = "- Biến động doanh thu năm 2025: -30,0%\n- HSTT 0,94 < 1"
+        self.assertEqual(keeps_every_number(draft, "**Kết luận:** suy giảm. DT 2025 giảm -30,0%; HSTT 0,94 < 1"), [])
+        self.assertEqual(keeps_every_number(draft, "**Kết luận:** suy giảm mạnh, HSTT 0,94 < 1"), ["2025", "-30,0%"])
+        # a sentence-final period is not part of the number
+        self.assertEqual(keeps_every_number("HSTT 0,94.", "HSTT là 0,94 (thấp)"), [])
+
+
 class RelativeYearsTest(unittest.TestCase):
     """[BRD 16/10] {{Nam-1}} / {{DTTN-1}}: the table follows the BCTC years, not 2024/2025."""
 

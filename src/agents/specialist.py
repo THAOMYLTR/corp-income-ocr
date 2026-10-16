@@ -14,6 +14,7 @@ Two layers, so a figure in the report can only come from a document:
 from __future__ import annotations
 
 import json
+import os
 from datetime import date
 from typing import Any
 
@@ -29,7 +30,7 @@ from src.agents.extraction import (
     liabilities_extraction,
     shareholders_extraction,
 )
-from src.agents.report_writer import write_placeholders
+from src.agents.report_writer import NO_INFO, keeps_every_number, write_placeholders
 from src.types import ClassifiedDocument
 from src.agents.calculator import cic_metrics
 from src.utils.paths import PROJECT_ROOT
@@ -71,6 +72,11 @@ EXCERPT_FIRST = ("bao_cao_thuc_dia", "du_lieu_noi_bo", "hinh_anh_thuc_dia", "chu
 # [BRD 16/10] "Tên ngành: theo bảng ngành tại TCB (file đính kèm)". Optional: put the
 # TCB industry list here (Markdown/CSV text); the writer then names the industry from it.
 INDUSTRY_TABLE_FILE = PROJECT_ROOT / "src" / "templates" / "bang-nganh-tcb.md"
+# [BRD 16/10] Comments code writes as a fact list; the LLM rewrites them into the frame of
+# corp-income-cell-specs.md. A rewrite that drops any number of the draft is rejected and
+# the code draft is kept. CORP_INCOME_POLISH_COMMENTS=0 keeps the code drafts as they are.
+POLISH_CELLS = ("NhanXetPhapLyDN", "NhanXet", "NhanXetTaiChinh", "NhanXetDuNo")
+POLISH = os.getenv("CORP_INCOME_POLISH_COMMENTS", "1") != "0"
 EXCERPT_CHARS = {"first": 6_000, "other": 2_500}
 EXCERPT_TOTAL = 80_000
 
@@ -221,6 +227,7 @@ class CorpIncomeAnalysis:
         fill_missing_financial_names(set(names), ctx)
 
         # 2. The LLM writes only what is left.
+        drafts = {n: ctx.pop(n) for n in POLISH_CELLS if POLISH and self.llm and n in ctx and n in names}
         remaining = [name for name in names if name not in ctx]
         evidence = {
             "ngay_tham_chieu": meta["as_of"],
@@ -258,7 +265,17 @@ class CorpIncomeAnalysis:
             "trich_doan_ho_so": _excerpts(documents),
             "du_lieu_noi_bo_ngoai": {k: v for k, v in reference_data.items() if k != "watchlist"},
         }
+        evidence["ban_nhap_code"] = drafts
         written, writer_error = write_placeholders(self.llm, template_body, remaining, evidence)
+        rejected = []
+        for name, draft in drafts.items():
+            missing = keeps_every_number(draft, written.get(name, ""))
+            if missing or written.get(name) in (None, "", NO_INFO):
+                written[name] = draft                       # keep the code version
+                rejected.append(name)
+        if rejected:
+            writer_error = "; ".join(x for x in (writer_error, "kept the code draft (LLM rewrite lost numbers or "
+                                                 f"was empty): {', '.join(rejected)}") if x)
         ctx.update(written)
         meta.update({
             "code_placeholders": [n for n in names if n not in remaining],

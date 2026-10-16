@@ -226,7 +226,7 @@ class AppendixTemplateTest(CorpIncomeWorkflowTest):
         self.assertIn("NhanXetHDKD", meta["llm_placeholders"])
         self.assertIn("KetLuanNguonThuDoanhNghiep", meta["llm_placeholders"])
         for code_cell in ("MST", "ThanhVien1", "DTT2025", "ROS2024", "TongTaiSanCurrent",
-                          "KetLuan", "NhanXet", "NhanXetTaiChinh", "NhanXetDuNo", "TCB_ST"):
+                          "KetLuan", "TCB_ST"):
             self.assertNotIn(code_cell, meta["llm_placeholders"])
         evidence = json.loads(self.writer_payloads[0]["evidence"])
         self.assertEqual(evidence["phan_nhom_doanh_nghiep"]["group"], "Bad corp")   # MST mismatch
@@ -234,6 +234,11 @@ class AppendixTemplateTest(CorpIncomeWorkflowTest):
         report = self.result["response"]
         self.assertIn("LLM:NhanXetHDKD", report)
         self.assertIn("1 cell(s) empty", meta["writer_error"])           # fake leaves one cell empty
+        # [BRD 16/10] the fake rewrite "LLM:NhanXet" drops every number → the code draft is kept
+        self.assertIn("NhanXet", evidence["ban_nhap_code"])
+        self.assertIn("kept the code draft", meta["writer_error"])
+        self.assertIn("Doanh nghiệp đã hoạt động", report)
+        self.assertNotIn("LLM:NhanXetTaiChinh", report)
 
 
 class OcrFallbackTest(unittest.TestCase):

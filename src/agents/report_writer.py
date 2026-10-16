@@ -15,6 +15,7 @@ Never raises: without an LLM, or when the call fails, the cells read
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from langchain_core.messages import SystemMessage
@@ -30,6 +31,32 @@ MAX_EVIDENCE_CHARS = 120_000
 
 
 GUIDANCE_PATH = PROJECT_ROOT / "src" / "templates" / "corp-income-guidance.md"
+# [BRD 16/10] Per-cell writing frame ("## TenO" sections), editable next to the template.
+CELL_SPECS_PATH = PROJECT_ROOT / "src" / "templates" / "corp-income-cell-specs.md"
+_NUMBER = re.compile(r"-?\d[\d.,]*%?")
+
+
+def load_cell_specs() -> dict[str, str]:
+    """{cell name: frame} from corp-income-cell-specs.md; {} when the file is absent."""
+
+    if not CELL_SPECS_PATH.is_file():
+        return {}
+    text = re.sub(r"<!--.*?-->", "", CELL_SPECS_PATH.read_text(encoding="utf-8"), flags=re.S)
+    specs: dict[str, str] = {}
+    for block in re.split(r"^## ", text, flags=re.M)[1:]:
+        name, _, body = block.partition("\n")
+        specs[name.strip()] = body.strip()
+    return specs
+
+
+def keeps_every_number(draft: str, rewritten: str) -> list[str]:
+    """[BRD 16/10] Numbers of the code draft missing from the LLM rewrite ([] = safe)."""
+
+    def numbers(text: str) -> list[str]:
+        return [n.rstrip(".,") for n in _NUMBER.findall(text)]   # "0,94." → "0,94"
+
+    have = set(numbers(rewritten))
+    return [n for n in dict.fromkeys(numbers(draft)) if n not in have]
 
 
 def load_guidance() -> str:
@@ -49,8 +76,10 @@ def build_writer_chain(llm: Any):
 
 
 def describe_fields(template: str, names: list[str]) -> str:
-    """Each name with the template line it sits on, so the LLM knows its meaning."""
+    """Each name with the template line it sits on, so the LLM knows its meaning,
+    and [BRD 16/10] its writing frame from corp-income-cell-specs.md ("cau_truc")."""
 
+    specs = load_cell_specs()
     lines = template.splitlines()
     out = []
     for name in names:
@@ -64,8 +93,10 @@ def describe_fields(template: str, names: list[str]) -> str:
         for line in lines[: next((i for i, l in enumerate(lines) if "{{" + name + "}}" in l), 0)]:
             if line.startswith("#"):
                 heading = line.strip("# ").strip()
-        out.append(json.dumps({"o": name, "phan": heading, "dong_mau": where, "trong_bang": in_table},
-                              ensure_ascii=False))
+        field = {"o": name, "phan": heading, "dong_mau": where, "trong_bang": in_table}
+        if name in specs:
+            field["cau_truc"] = specs[name]
+        out.append(json.dumps(field, ensure_ascii=False))
     return "\n".join(out)
 
 
