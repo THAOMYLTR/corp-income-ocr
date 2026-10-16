@@ -27,9 +27,41 @@ def resolve_money_multiplier(source_unit: Any) -> int:
     return 1
 
 
+def to_number(value: Any) -> Any:
+    """[BRD 16/10] A figure the LLM returned as text ("1.234.567", "(1.234)", "12,5") → number.
+
+    Vietnamese print: "." groups thousands, "," is the decimal mark; brackets mean
+    negative. Anything that is not a number is returned unchanged.
+    """
+
+    if not isinstance(value, str):
+        return value
+    text = value.strip().replace(" ", "").replace("đ", "").replace("VND", "")
+    negative = text.startswith("(") and text.endswith(")") or text.startswith("-")
+    text = text.strip("()-")
+    if not text or not all(ch.isdigit() or ch in ".," for ch in text):
+        return value
+    if "." in text and "," in text:                      # both: the last one is decimal
+        dec = "," if text.rfind(",") > text.rfind(".") else "."
+        text = text.replace("." if dec == "," else ",", "").replace(dec, ".")
+    elif text.count(".") > 1 or (text.count(".") == 1 and len(text.split(".")[1]) == 3):
+        text = text.replace(".", "")                     # 1.234.567 / 1.234 → thousands
+    elif text.count(",") > 1 or (text.count(",") == 1 and len(text.split(",")[1]) == 3):
+        text = text.replace(",", "")
+    else:
+        text = text.replace(",", ".")                    # 12,5 → 12.5
+    try:
+        number = float(text)
+    except ValueError:
+        return value
+    number = -number if negative else number
+    return int(number) if number.is_integer() else number
+
+
 def scale_amount(value: Any, multiplier: int) -> Any:
     """Multiply a printed figure into đồng, leaving anything else untouched."""
 
+    value = to_number(value)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return value
     return round(value * multiplier, 2)

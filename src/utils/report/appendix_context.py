@@ -52,7 +52,8 @@ FIGURE_PREFIXES = {
 }
 RATIO_PREFIXES = {"BienDongDT": "revenue_growth", "ROS": "ros", "CurrentRatio": "current_ratio"}
 FINANCIAL_NAME = re.compile(
-    r"^(" + "|".join(sorted({**FIGURE_PREFIXES, **RATIO_PREFIXES}, key=len, reverse=True)) + r")(\d{4}|Current)$"
+    r"^(" + "|".join(sorted({**FIGURE_PREFIXES, **RATIO_PREFIXES}, key=len, reverse=True))
+    + r")(\d{4}|Current|N-1|N-2|N1|N2)$"
 )
 
 
@@ -299,6 +300,17 @@ def build_appendix_context(result: dict[str, Any], records: list[dict[str, Any]]
     for name, ratio in RATIO_PREFIXES.items():
         for label, values in financials["ratios"].items():
             ctx[f"{name}{label}"] = _ratio_text(ratio, values.get(ratio))
+
+    # [BRD 16/10] Relative years, so the template does not hard-code 2024 / 2025:
+    #   N-1 = the latest full year with a BCTC in the dossier (else the year before the
+    #   loan date), N-2 = the year before it. Headers: {{Nam-1}}, {{Nam-2}};
+    #   cells: {{DTTN-1}}, {{TongTaiSanN-2}}, {{ROSN-1}} … ("N1"/"N2" also accepted).
+    n1 = financials.get("latest_year") or str(as_of.year - 1)
+    n2 = str(int(n1) - 1)
+    ctx["Nam-1"], ctx["Nam-2"] = n1, n2
+    for prefix in (*FIGURE_PREFIXES, *RATIO_PREFIXES):
+        for alias, year in (("N-1", n1), ("N-2", n2), ("N1", n1), ("N2", n2)):
+            ctx[f"{prefix}{alias}"] = ctx.get(f"{prefix}{year}", "—")
 
     fin_lines = ["**Cảnh báo dấu hiệu bất thường của BCTC**"]
     fin_lines += [f"- ⚠ {w}" for w in financials["material_warnings"]] or ["- Không ghi nhận mâu thuẫn trọng yếu"]

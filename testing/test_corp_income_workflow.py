@@ -210,6 +210,7 @@ class AppendixTemplateTest(CorpIncomeWorkflowTest):
     def test_financial_table_and_ratios_are_computed_in_code(self):
         report = self.result["response"]
         self.assertIn("<td>{}</td>".format("70.000"), report)          # DTT 2025, triệu đồng
+        self.assertIn("<th>31/12/2025</th>", report)                   # {{Nam-1}} = latest BCTC year
         self.assertIn("<td>-30,0%</td>", report)                       # 70.000 / 100.000 - 1
         self.assertIn("<td>0,94</td>", report)                         # 30.000 / 32.000
         remarks = self.result["corp_income"]["financials"]["status_remarks"]

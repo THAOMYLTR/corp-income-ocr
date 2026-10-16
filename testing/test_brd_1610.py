@@ -123,6 +123,31 @@ class CicRulesTest(unittest.TestCase):
         self.assertTrue(any("quá 1 tháng" in w for w in r["warnings"]))
 
 
+class NumberTextTest(unittest.TestCase):
+    def test_figures_returned_as_text_are_read(self):
+        from src.agents.extraction.structured_extraction import to_number
+        for text, number in (("1.234.567", 1234567), ("(1.234)", -1234), ("12,5", 12.5),
+                             ("1,234,567", 1234567), ("1.234,5", 1234.5), ("-500", -500), ("n/a", "n/a")):
+            self.assertEqual(to_number(text), number, text)
+
+
+class RelativeYearsTest(unittest.TestCase):
+    """[BRD 16/10] {{Nam-1}} / {{DTTN-1}}: the table follows the BCTC years, not 2024/2025."""
+
+    def test_template_follows_the_latest_bctc_year(self):
+        from src.utils.report.appendix_context import build_appendix_context
+        from src.utils.report.report_template import fill_template
+        items = {n: {"summary": {}, "findings": []} for n in (1, 2, 3, 4)}
+        items[2]["summary"] = {"members": []}
+        items[3]["summary"] = {"legal_representatives": []}
+        financials = fm.compute([fin("BCTC_2023.pdf", [year(2023, net_revenue=500, profit_after_tax=20),
+                                                         year(2022, net_revenue=400)])], AS_OF)
+        ctx = build_appendix_context({"items": items, "meta": {"borrower_names": []}}, [], financials, AS_OF)
+        out = fill_template("<th>{{Nam-2}}</th><th>{{Nam-1}}</th>|{{DTTN-2}}|{{DTTN-1}}|{{BienDongDTN-1}}|"
+                            "{{TongTaiSanN-1}}", ctx)
+        self.assertEqual(out, "<th>2022</th><th>2023</th>|400|500|25,0%|—")
+
+
 class OutputConditionsTest(unittest.TestCase):
     def test_empty_partner_rows_are_removed_and_plan_table_hidden(self):
         md = ("<table><tr><td>Công ty A (500 tr)</td><td></td><td></td><td></td></tr>"

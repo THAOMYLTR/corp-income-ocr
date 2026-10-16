@@ -9,7 +9,8 @@ Cách điền:
   hoạt động kinh doanh, CIC, phương án kinh doanh, kết luận.
 - Bổ sung so với bản gốc: NhanXetPhapLyDN ở mục 1.1 và các ô mục 5 (bảng
   phương án kinh doanh gốc để trống).
-- Năm trong bảng tài chính (2024, 2025) cố định theo template; năm không có BCTC hiện "—".
+- [BRD 16/10] Năm tương đối: Nam-1 = năm BCTC gần nhất trong hồ sơ, Nam-2 = năm trước đó;
+  ô ghi theo dạng DTTN-1, TongTaiSanN-2, ROSN-1… Năm không có BCTC hiện "—".
 -->
 ## PHỤ LỤC 01 - THẨM ĐỊNH NGUỒN THU DOANH NGHIỆP
 
@@ -66,71 +67,71 @@ _Nhận xét về hoạt động kinh doanh của khách hàng:_ {{NhanXetHDKD}}
 <table>
 <tr>
 <th>Bảng cân đối kế toán</th>
-<th>31/12/2024</th>
-<th>31/12/2025</th>
+<th>31/12/{{Nam-2}}</th>
+<th>31/12/{{Nam-1}}</th>
 <th>Báo cáo kết quả hoạt động kinh doanh</th>
-<th>2024</th>
-<th>2025</th>
+<th>{{Nam-2}}</th>
+<th>{{Nam-1}}</th>
 <th>Cập nhật các tháng {{NamHienTai}}</th>
 </tr>
 
 <tr>
 <td>Tổng tài sản</td>
-<td>{{TongTaiSan2024}}</td>
-<td>{{TongTaiSan2025}}</td>
+<td>{{TongTaiSanN-2}}</td>
+<td>{{TongTaiSanN-1}}</td>
 <td>Doanh thu thuần</td>
-<td>{{DTT2024}}</td>
-<td>{{DTT2025}}</td>
+<td>{{DTTN-2}}</td>
+<td>{{DTTN-1}}</td>
 <td>{{DTTCurrent}}</td>
 </tr>
 
 <tr>
 <td>Tài sản ngắn hạn</td>
-<td>{{TSNH2024}}</td>
-<td>{{TSNH2025}}</td>
+<td>{{TSNHN-2}}</td>
+<td>{{TSNHN-1}}</td>
 <td>Giá vốn hàng bán</td>
-<td>{{GVHB2024}}</td>
-<td>{{GVHB2025}}</td>
+<td>{{GVHBN-2}}</td>
+<td>{{GVHBN-1}}</td>
 <td>{{GVHBCurrent}}</td>
 </tr>
 
 <tr>
 <td>Tài sản dài hạn</td>
-<td>{{TSDH2024}}</td>
-<td>{{TSDH2025}}</td>
+<td>{{TSDHN-2}}</td>
+<td>{{TSDHN-1}}</td>
 <td>Lợi nhuận gộp</td>
-<td>{{LNG2024}}</td>
-<td>{{LNG2025}}</td>
+<td>{{LNGN-2}}</td>
+<td>{{LNGN-1}}</td>
 <td>{{LNGCurrent}}</td>
 </tr>
 
 <tr>
 <td>Tổng nguồn vốn</td>
-<td>{{TongNguonVon2024}}</td>
-<td>{{TongNguonVon2025}}</td>
+<td>{{TongNguonVonN-2}}</td>
+<td>{{TongNguonVonN-1}}</td>
 <td>Doanh thu tài chính</td>
-<td>{{DTTC2024}}</td>
-<td>{{DTTC2025}}</td>
+<td>{{DTTCN-2}}</td>
+<td>{{DTTCN-1}}</td>
 <td>{{DTTCCurrent}}</td>
 </tr>
 
 <tr>
 <td>Nợ phải trả</td>
-<td>{{NoPhaiTra2024}}</td>
-<td>{{NoPhaiTra2025}}</td>
+<td>{{NoPhaiTraN-2}}</td>
+<td>{{NoPhaiTraN-1}}</td>
 <td>Chi phí tài chính</td>
-<td>{{CPTC2024}}</td>
-<td>{{CPTC2025}}</td>
+<td>{{CPTCN-2}}</td>
+<td>{{CPTCN-1}}</td>
 <td>{{CPTCCurrent}}</td>
 </tr>
 
 <tr>
 <td>Vốn chủ sở hữu</td>
-<td>{{VCSH2024}}</td>
-<td>{{VCSH2025}}</td>
+<td>{{VCSHN-2}}</td>
+<td>{{VCSHN-1}}</td>
 <td>Chi phí quản lý doanh nghiệp</td>
-<td>{{CPQL2024}}</td>
-<td>{{CPQL2025}}</td>
+<td>{{CPQLN-2}}</td>
+<td>{{CPQLN-1}}</td>
 <td>{{CPQLCurrent}}</td>
 </tr>
 
@@ -139,38 +140,38 @@ _Nhận xét về hoạt động kinh doanh của khách hàng:_ {{NhanXetHDKD}}
 <td></td>
 <td></td>
 <td>Chi phí bán hàng</td>
-<td>{{CPBH2024}}</td>
-<td>{{CPBH2025}}</td>
+<td>{{CPBHN-2}}</td>
+<td>{{CPBHN-1}}</td>
 <td>{{CPBHCurrent}}</td>
 </tr>
 
 <tr>
 <td>Biến động doanh thu</td>
-<td>{{BienDongDT2024}}</td>
-<td>{{BienDongDT2025}}</td>
+<td>{{BienDongDTN-2}}</td>
+<td>{{BienDongDTN-1}}</td>
 <td>Lợi nhuận thuần</td>
-<td>{{LNThuan2024}}</td>
-<td>{{LNThuan2025}}</td>
+<td>{{LNThuanN-2}}</td>
+<td>{{LNThuanN-1}}</td>
 <td>{{LNThuanCurrent}}</td>
 </tr>
 
 <tr>
 <td>LN sau thuế / DTT</td>
-<td>{{ROS2024}}</td>
-<td>{{ROS2025}}</td>
+<td>{{ROSN-2}}</td>
+<td>{{ROSN-1}}</td>
 <td>Lợi nhuận trước thuế</td>
-<td>{{LNTT2024}}</td>
-<td>{{LNTT2025}}</td>
+<td>{{LNTTN-2}}</td>
+<td>{{LNTTN-1}}</td>
 <td>{{LNTTCurrent}}</td>
 </tr>
 
 <tr>
 <td>Hệ số thanh toán hiện hành</td>
-<td>{{CurrentRatio2024}}</td>
-<td>{{CurrentRatio2025}}</td>
+<td>{{CurrentRatioN-2}}</td>
+<td>{{CurrentRatioN-1}}</td>
 <td>Lợi nhuận sau thuế</td>
-<td>{{LNST2024}}</td>
-<td>{{LNST2025}}</td>
+<td>{{LNSTN-2}}</td>
+<td>{{LNSTN-1}}</td>
 <td>{{LNSTCurrent}}</td>
 </tr>
 </table>
@@ -258,12 +259,12 @@ _Nhận xét về hoạt động kinh doanh của khách hàng:_ {{NhanXetHDKD}}
 
 ### 5. Phương án kinh doanh (nếu có)
 
-| Phương án kinh doanh (nếu có) | 2024 | 2025 | Cập nhật năm T | Năm kế hoạch | Cơ sở của Khách hàng |
+| Phương án kinh doanh (nếu có) | {{Nam-2}} | {{Nam-1}} | Cập nhật năm T | Năm kế hoạch | Cơ sở của Khách hàng |
 |---|---|---|---|---|---|
-| Doanh thu thuần | {{DTT2024}} | {{DTT2025}} | {{DTTCurrent}} | {{PAKD_DTT_KeHoach}} | {{PAKD_DTT_CoSo}} |
-| Tốc độ tăng trưởng DTT | {{BienDongDT2024}} | {{BienDongDT2025}} | | {{PAKD_TangTruong_KeHoach}} | {{PAKD_TangTruong_CoSo}} |
-| Lợi nhuận sau thuế | {{LNST2024}} | {{LNST2025}} | {{LNSTCurrent}} | {{PAKD_LNST_KeHoach}} | {{PAKD_LNST_CoSo}} |
-| Tỷ lệ LNST/DTT | {{ROS2024}} | {{ROS2025}} | | {{PAKD_ROS_KeHoach}} | {{PAKD_ROS_CoSo}} |
+| Doanh thu thuần | {{DTTN-2}} | {{DTTN-1}} | {{DTTCurrent}} | {{PAKD_DTT_KeHoach}} | {{PAKD_DTT_CoSo}} |
+| Tốc độ tăng trưởng DTT | {{BienDongDTN-2}} | {{BienDongDTN-1}} | | {{PAKD_TangTruong_KeHoach}} | {{PAKD_TangTruong_CoSo}} |
+| Lợi nhuận sau thuế | {{LNSTN-2}} | {{LNSTN-1}} | {{LNSTCurrent}} | {{PAKD_LNST_KeHoach}} | {{PAKD_LNST_CoSo}} |
+| Tỷ lệ LNST/DTT | {{ROSN-2}} | {{ROSN-1}} | | {{PAKD_ROS_KeHoach}} | {{PAKD_ROS_CoSo}} |
 
 **Nhận xét về phương án kinh doanh**
 

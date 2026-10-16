@@ -48,5 +48,16 @@ QUY TẮC BẮT BUỘC:
    suy luận nội dung hình ảnh ngoài phần chữ đó; thiếu thì ghi "ảnh không đọc được
    nội dung, đề nghị người dùng kiểm tra".
 
+12. [BRD 16/10] VĂN PHONG SẮC BÉN cho mọi ô nhận xét:
+   - Câu đầu là KẾT LUẬN của ô đó (phù hợp / cần làm rõ / rủi ro), sau đó mới đến căn cứ.
+   - Mỗi gạch đầu dòng = 1 sự kiện + con số / ngày / tên cụ thể + nguồn (tên file).
+   - Nêu rõ HỆ QUẢ cho việc thẩm định (vd: "→ cần bổ sung hợp đồng đầu ra để xác nhận").
+   - CẤM câu chung chung không có số: "tương đối ổn định", "khá tốt", "có tiềm năng",
+     "nhìn chung", "đáng kể". Không lặp lại nguyên văn giá trị đã có trong bảng.
+   - Ví dụ KHÔNG đạt: "Doanh nghiệp hoạt động tương đối ổn định, có nhiều khách hàng."
+   - Ví dụ ĐẠT: "Cần làm rõ: ngành nghề thực tế (thương mại vật liệu xây dựng — Báo cáo thực
+     địa.pdf) khác ngành đăng ký chính (tư vấn đầu tư — DKKD.pdf) → đề nghị ĐVKD xác nhận
+     doanh thu theo từng ngành."
+
 ĐẦU RA: CHỈ một đối tượng JSON, khóa là ĐÚNG tên các ô được yêu cầu, giá trị là
 chuỗi. Không thêm khóa khác, không thêm chữ ngoài JSON.

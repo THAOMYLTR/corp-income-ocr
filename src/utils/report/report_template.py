@@ -37,7 +37,8 @@ from src.agents.calculator.legal_checks import SOURCE_LABELS, fmt_money
 from src.utils.paths import PROJECT_ROOT
 
 TEMPLATE_PATH = PROJECT_ROOT / "src" / "templates" / "corp-income-structure.md"
-PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
+# [BRD 16/10] "-" allowed so a template can say {{Nam-1}} / {{DTTN-1}} (relative years).
+PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z0-9_\-]+)\s*\}\}")
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
 
 ICONS = {"alert": "🔴", "warning": "🟠", "info": "🔵", "ok": "🟢"}
