@@ -244,3 +244,43 @@ x Tỷ lệ góp vốn
   - LNST hợp lý = LNST năm N-1 − doanh thu tài chính năm N-1 − thu nhập khác năm N-1.
   - LNST sử dụng để trả nghĩa vụ TDH = nghĩa vụ trả gốc TDH hằng năm − khấu hao trong năm.
   - Lợi tức / cổ tức tối đa chia được cho KHCN = (LNST hợp lý − LNST sử dụng để trả nghĩa vụ TDH) × tỷ lệ góp vốn.
+
+---
+
+##### CÁCH VIẾT NHẬN XÉT (BẮT BUỘC CHO MỌI Ô NHẬN XÉT VÀ KẾT LUẬN)
+
+Mục tiêu: người phê duyệt đọc 30 giây là biết NÊN hay KHÔNG NÊN dùng nguồn thu doanh nghiệp, và vì sao.
+
+**1. Khung mỗi ô nhận xét (đúng thứ tự):**
+- **Kết luận:** một trong ba mức — *Phù hợp* / *Cần làm rõ* / *Rủi ro cao* — kèm 1 câu nói thẳng vấn đề chính.
+- **Căn cứ:** 2–4 gạch đầu dòng, mỗi dòng = 1 sự kiện + con số/ngày/tên + nguồn (tên file).
+- **Cảnh báo:** liệt kê đủ các cảnh báo của mục đó, không bỏ sót, không làm nhẹ đi.
+- **Ảnh hưởng tới quyết định:** 1 câu — điều này làm việc sử dụng nguồn thu doanh nghiệp MẠNH LÊN hay YẾU ĐI, vì sao.
+
+**2. Ô kết luận nguồn thu doanh nghiệp (mục 6) — viết như tờ trình phê duyệt:**
+- **Đề xuất:** Sử dụng / Sử dụng có điều kiện / Không sử dụng nguồn thu doanh nghiệp để đánh giá năng lực trả nợ lần này.
+  - Bad corp → bắt buộc "Không sử dụng".
+  - Normal corp → tối đa "Sử dụng có điều kiện".
+  - Good corp và không còn rủi ro trung bình trở lên → "Sử dụng".
+- **Lý do chính:** 2–3 lý do mạnh nhất, có số liệu.
+- **Rủi ro còn lại & biện pháp giảm thiểu:** chỉ rủi ro mức cao / trung bình.
+- **Điều kiện:** (nếu "có điều kiện") việc phải hoàn tất trước giải ngân.
+- **Hồ sơ cần bổ sung / câu hỏi cho ĐVKD:** cụ thể, làm được ngay.
+
+**3. Cách nghĩ khi nhận xét — luôn tự hỏi:**
+- KH vay có THỰC SỰ sở hữu và kiểm soát doanh nghiệp không (tỷ lệ góp vốn, NĐDPL, thay đổi gần đây)?
+- Hoạt động kinh doanh có được CHỨNG MINH bằng tài liệu độc lập không (thực địa, hợp đồng, hóa đơn, VAT), hay chỉ có lời KH?
+- Số liệu có NHẤT QUÁN giữa BCTC, tờ khai VAT, CIC, thực địa không? Chỗ nào lệch thì nói rõ lệch bao nhiêu.
+- Lợi nhuận có đủ và bền để chia cho KH cá nhân trả nợ không, sau khi doanh nghiệp trả nợ của chính nó?
+
+**4. Cấm:**
+- Câu chung chung không có số: "tương đối ổn định", "khá tốt", "có tiềm năng", "nhìn chung", "đáng kể".
+- Khen mà không có căn cứ; làm nhẹ cảnh báo; kết luận mâu thuẫn với phân nhóm doanh nghiệp.
+- Lặp lại nguyên văn số liệu đã có trong bảng mà không rút ra ý nghĩa.
+
+**5. Ví dụ (số X, Y, Z chỉ minh họa — luôn dùng số thật trong hồ sơ):**
+- KHÔNG ĐẠT: "Doanh nghiệp hoạt động tương đối ổn định, doanh thu có tăng trưởng, tình hình tài chính khá tốt."
+- ĐẠT: "**Kết luận:** Cần làm rõ — doanh thu tăng nhưng chưa được chứng minh bằng dòng tiền.
+  - DTT năm N-1 đạt X tr.đ (+Y% so với năm N-2 — <tên file BCTC>), nhưng doanh thu theo tờ khai VAT các tháng năm N mới bằng Z% năm N-1 (<tên file VAT>).
+  - Hệ số thanh toán hiện hành < 1 — tài sản ngắn hạn không đủ trả nợ ngắn hạn.
+  - **Ảnh hưởng tới quyết định:** làm yếu khả năng chia lợi nhuận cho KH cá nhân → chỉ nên sử dụng có điều kiện, bổ sung sao kê tài khoản 12 tháng để xác nhận dòng tiền."
