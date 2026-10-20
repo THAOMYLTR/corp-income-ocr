@@ -60,3 +60,12 @@ The BRD gives no number for these. Each one is a named constant you can change i
 - Photo **content** (products, machines, people): only the text OCR reads from the photo is used.
 - Revenue vs bank statements / sales software: the writer mentions them only when the documents are in the dossier.
 - "Mô hình HĐKD" diagram: replaced by the two partner tables already in the template (the BRD marks the diagram optional).
+
+## Sửa sau BRD (tìm tag trong code: `[Sửa 16/10]`, `[Sửa 20/10]`)
+
+| Ngày | Vấn đề | Sửa | File |
+|---|---|---|---|
+| 16/10 | Biến động DT ra 390,9% khi năm trước là năm đầu thành lập (không đủ 12 tháng) | LLM đọc thêm `months`; hai năm khác số tháng → không tính, hiện "—" và có cảnh báo | `config/prompts/financial_extraction.md`, `financial_metrics.py` (merge_periods, [N3]) |
+| 16/10 | Số doanh thu đọc nhầm dòng/cột không ai phát hiện | Cảnh báo khi DTT − Giá vốn ≠ LN gộp; cảnh báo khi biến động DT ngoài −80%…+200% (`REVENUE_GROWTH_CHECK`) | `financial_metrics.py` ([BT]) |
+| 20/10 | GCN ĐKDN font VNI/TCVN3 không được OCR (lớp text "Ñaêng kyù…" bị coi là sạch) → năm thành lập sai | `_looks_like_legacy_font`: phát hiện font cũ → OCR ảnh trang | `src/utils/reading/extractors.py` |
+| 20/10 | LLM ghi ngày "thay đổi lần thứ N" vào ngày thành lập | Dòng "Đăng ký lần đầu: ngày …" trên giấy thắng giá trị LLM (ghi chú "LLM ghi …, giấy ghi …"); nhận cả dạng `12/05/2015` | `legal_basic_extraction.py` (`_DATE`, `fill_from_text`) |
