@@ -40,7 +40,8 @@ def normalize_amounts(result: dict[str, Any]) -> dict[str, Any]:
 # scanned GCN often OCRs as "MA so doanh nghiép: 0108977425" or "ngay 07 thang
 # 11 naém 2019" — readable to a regex on the accent-stripped text even when the
 # LLM leaves the field empty. Only fills what the LLM left empty.
-_DATE = r"ngay\s*(\d{1,2})\s*thang\s*(\d{1,2})\s*n\w{0,3}\s*((?:19|20)\d{2})"
+# [Sửa 20/10] nhận cả "ngày 12 tháng 05 năm 2015" lẫn "12/05/2015" (sau normalize "/" → " ").
+_DATE = r"(?:ngay\s*)?(\d{1,2})\s*(?:thang\s*)?(\d{1,2})\s*(?:n\w{0,3}\s*)?((?:19|20)\d{2})"
 _TAX_CODE = re.compile(r"ma\s*so\s*(?:doanh\s*nghiep|thue|dn)\s*(\d{10})(?:\s*(\d{3})\b)?")
 _FIRST = re.compile(r"dang\s*ky\s*lan\s*dau\s*" + _DATE)
 _CHANGE = re.compile(r"thay\s*\w{2,4}\s*lan\s*th\w{0,3}\s*(\d{1,2})\s*" + _DATE)
@@ -60,11 +61,18 @@ def fill_from_text(result: dict[str, Any], content: str) -> dict[str, Any]:
         if match:
             result["tax_code"] = match.group(1) + (f"-{match.group(2)}" if match.group(2) else "")
             filled.append("tax_code")
-    if not result.get("establishment_date"):
-        match = _FIRST.search(text)
-        if match:
-            result["establishment_date"] = _date(*match.groups())
+    match = _FIRST.search(text)
+    if match:
+        printed = _date(*match.groups())
+        current = str(result.get("establishment_date") or "")
+        if not current:
+            result["establishment_date"] = printed
             filled.append("establishment_date")
+        elif printed[-4:] not in current:
+            # [Sửa 20/10] LLM hay ghi nhầm ngày "thay đổi lần thứ N" vào ngày thành lập. Dòng
+            # "Đăng ký lần đầu: ngày …" in trên giấy là căn cứ, nên số trên giấy thắng.
+            result["establishment_date"] = printed
+            filled.append(f"establishment_date (LLM ghi {current}, giấy ghi {printed})")
     change = _CHANGE.search(text)
     if change:
         if result.get("registration_change_number") in (None, ""):

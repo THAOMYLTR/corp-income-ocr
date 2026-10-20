@@ -242,5 +242,25 @@ class RevenueGrowthGuardTest(unittest.TestCase):
         self.assertFalse(any("≠ LN gộp" in w for w in result["other_warnings"]))
 
 
+class DkkdReadingTest(unittest.TestCase):
+    """[Sửa 20/10] GCN ĐKDN: lớp text font VNI phải đi OCR; ngày lần đầu trên giấy thắng LLM."""
+
+    def test_vni_text_layer_is_rejected(self):
+        from src.utils.reading.extractors import _looks_like_legacy_font
+        self.assertTrue(_looks_like_legacy_font(
+            "GIAÁY CHÖÙNG NHAÄN ÑAÊNG KYÙ DOANH NGHIEÄP. Ñaêng kyù laàn ñaàu: ngaøy 12 thaùng 05 naêm 2015"))
+        self.assertFalse(_looks_like_legacy_font(
+            "GIẤY CHỨNG NHẬN ĐĂNG KÝ DOANH NGHIỆP. Đăng ký lần đầu: ngày 12 tháng 05 năm 2015, "
+            "Địa chỉ trụ sở chính: số 5 phố Hàng Bài, quận Hoàn Kiếm"))
+
+    def test_first_registration_date_overrides_llm_change_date(self):
+        from src.agents.extraction.legal_basic_extraction import fill_from_text
+        text = "Đăng ký lần đầu: ngày 12 tháng 05 năm 2015\nĐăng ký thay đổi lần thứ 7: ngày 03/08/2024"
+        result = fill_from_text({"establishment_date": "03/08/2024"}, text)
+        self.assertEqual(result["establishment_date"], "12/05/2015")
+        self.assertEqual(result["registration_change_number"], 7)
+        self.assertEqual(fill_from_text({}, "Đăng ký lần đầu: 12/05/2015")["establishment_date"], "12/05/2015")
+
+
 if __name__ == "__main__":
     unittest.main()

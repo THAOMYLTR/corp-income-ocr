@@ -255,13 +255,17 @@ class OcrFallbackTest(unittest.TestCase):
         self.assertEqual(result["establishment_date"], "07/11/2019")
         self.assertEqual((result["registration_change_number"], result["latest_change_date"]), (4, "26/09/2025"))
 
-    def test_llm_values_are_never_overwritten(self):
+    def test_llm_values_are_kept_except_a_wrong_first_registration_date(self):
         from src.agents.extraction.legal_basic_extraction import fill_from_text
         result = fill_from_text({"tax_code": "0101234567", "establishment_date": "01/01/2015",
                                  "registration_change_number": 2, "latest_change_date": "02/02/2020"}, self.OCR)
         self.assertEqual(result["tax_code"], "0101234567")
         self.assertEqual(result["latest_change_date"], "02/02/2020")
-        self.assertNotIn("extraction_notes", result)
+        # [Sửa 20/10] "Đăng ký lần đầu: ngày …" printed on the GCN wins over the LLM's year.
+        self.assertEqual(result["establishment_date"], "07/11/2019")
+        same = fill_from_text({"tax_code": "0101234567", "establishment_date": "07/11/2019",
+                               "registration_change_number": 2, "latest_change_date": "02/02/2020"}, self.OCR)
+        self.assertNotIn("extraction_notes", same)
 
 
 class GuidanceTest(unittest.TestCase):

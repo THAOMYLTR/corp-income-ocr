@@ -793,6 +793,19 @@ def extract_pptx_text(pptx_path: str, max_chars: int = 100_000) -> str:
 PDF_TEXT_LAYER_MIN_CHARS_PER_PAGE = 200
 PDF_TEXT_LAYER_MIN_CLEAN_RATIO = 0.85
 _CLEAN_CHAR = re.compile(r"[0-9A-Za-zÀ-ỹĐđ\s.,;:()/%\-–—'\"!?&+*=#@_\[\]|<>]")
+# [Sửa 20/10] Font VNI/TCVN3 cũ (hay gặp ở GCN ĐKDN in từ máy cũ) cho ra "Ñaêng kyù
+# laàn ñaàu" — toàn chữ Latin-1 có dấu nên lọt qua _CLEAN_CHAR (100% "sạch"), OCR bị bỏ
+# qua và LLM đọc sai ngày/năm. Tiếng Việt thật luôn có nhiều chữ riêng của tiếng Việt
+# (ă đ ơ ư ạ ả ấ ầ ế ệ ộ ...); chữ VNI thì gần như không có.
+_VIET_ONLY_CHAR = re.compile(r"[ăđơưĂĐƠƯ\u1EA0-\u1EF9]")
+_LATIN1_ACCENT = re.compile(r"[À-ÿ]")
+
+
+def _looks_like_legacy_font(sample: str) -> bool:
+    """True khi lớp text là font VNI/TCVN3 bị giải mã sai (nhiều dấu Latin-1, gần như không có chữ Việt)."""
+
+    latin1 = len(_LATIN1_ACCENT.findall(sample))
+    return latin1 >= 10 and len(_VIET_ONLY_CHAR.findall(sample)) < 0.2 * latin1
 
 
 def _pdf_text_layer(file_path: str) -> str | None:
@@ -821,6 +834,8 @@ def _pdf_text_layer(file_path: str) -> str | None:
         return None
     sample = body[:20_000]
     if len(_CLEAN_CHAR.findall(sample)) / max(len(sample), 1) < PDF_TEXT_LAYER_MIN_CLEAN_RATIO:
+        return None
+    if _looks_like_legacy_font(sample):     # [Sửa 20/10] → OCR ảnh trang thay vì đọc lớp text lỗi
         return None
     return "\n\n".join(f"--- Page {i} ---\n{text}" for i, text in enumerate(pages, start=1))
 
