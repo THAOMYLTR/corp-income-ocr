@@ -402,13 +402,30 @@ def _file_sha256(path: str) -> str:
 
 
 def _cache_dir(settings: dict[str, object]) -> Path:
+    # [Sửa 20/10] Cluster dùng chung: /tmp/corp_income_ocr_cache do user khác tạo trước →
+    # "[Errno 13] Permission denied" và cả file không OCR được. Thư mục mặc định nay riêng
+    # theo user; không ghi được thì dùng một thư mục tạm mới (chỉ mất cache, không mất OCR).
     configured = str(settings.get("cache_dir") or "")
     if configured:
         directory = Path(configured)
     else:
-        directory = Path(tempfile.gettempdir()) / "corp_income_ocr_cache"
-    directory.mkdir(parents=True, exist_ok=True)
+        user = os.getenv("USER") or os.getenv("USERNAME") or str(os.getuid() if hasattr(os, "getuid") else "")
+        directory = Path(tempfile.gettempdir()) / f"corp_income_ocr_cache_{user}"
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        if not os.access(directory, os.R_OK | os.W_OK):
+            raise PermissionError(directory)
+    except OSError:
+        directory = Path(tempfile.mkdtemp(prefix="corp_income_ocr_cache_"))
     return directory
+
+
+def _read_cache(cache_file: Path) -> str | None:
+    """Cached text, or None when absent or unreadable (another user's file)."""
+    try:
+        return cache_file.read_text(encoding="utf-8") if cache_file.is_file() else None
+    except OSError:
+        return None
 
 
 def _cache_key(pdf_path: str, settings: dict[str, object]) -> str:
@@ -533,8 +550,9 @@ def ocr_pdf(pdf_path: str, timeout_seconds: float | None = None) -> str:
 
     cache_directory = _cache_dir(settings)
     cache_file = cache_directory / f"{_cache_key(pdf_path, settings)}.txt"
-    if cache_file.is_file():
-        return cache_file.read_text(encoding="utf-8")
+    cached = _read_cache(cache_file)
+    if cached is not None:
+        return cached
 
     tess_config = f"--oem {settings['oem']} --psm {settings['psm']}"
     lang = str(settings["lang"])
@@ -612,8 +630,9 @@ def ocr_image(image_path: str, timeout_seconds: float | None = None) -> str:
 
     cache_directory = _cache_dir(settings)
     cache_file = cache_directory / f"{_cache_key(image_path, settings)}.txt"
-    if cache_file.is_file():
-        return cache_file.read_text(encoding="utf-8")
+    cached = _read_cache(cache_file)
+    if cached is not None:
+        return cached
 
     tess_config = f"--oem {settings['oem']} --psm {settings['psm']}"
     lang = str(settings["lang"])
