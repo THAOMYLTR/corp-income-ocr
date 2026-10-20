@@ -238,8 +238,9 @@ Clear filenames and the right upload box are the biggest levers, exactly as in t
    AGENT = "CORP_INCOME_AGENT"
    INPUT_PATHS = [str(PROJECT_ROOT / "samples" / TESTCASE_ID)]   # or a /Volumes/… folder
    LOAN_DATE = "13/10/2026"            # 12-month checks end here; None = today
-   BORROWER_NAMES = ["Nguyễn Văn A"]   # individual borrower(s), BRD item 2
+   BORROWER_NAMES = []                 # [] = tự tìm trong ho_so_vay_von; điền tay để ghi đè
    ```
+   Giấy tờ nào để vào ô nào: [docs/HUONG-DAN-XEP-HO-SO.md](docs/HUONG-DAN-XEP-HO-SO.md).
 4. **Cell 5** — builds `Config` with the LLM clients.
 5. **Cells 6–8** — import types, document modules, agents.
 6. **Cell 9** — `supervisor.process(INPUT_PATHS, agent=AGENT, loan_program=LOAN_PROGRAM, …)`;
