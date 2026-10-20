@@ -33,6 +33,7 @@ from src.agents.extraction import (
 from src.agents.report_writer import NO_INFO, assess_credit, keeps_every_number, write_placeholders
 from src.types import ClassifiedDocument
 from src.agents.calculator import cic_metrics
+from src.agents.calculator.borrowers import detect_borrowers
 from src.utils.paths import PROJECT_ROOT
 from src.utils.report.appendix_context import (
     apply_output_conditions,
@@ -173,6 +174,12 @@ class CorpIncomeAnalysis:
         borrower_names = list(borrower_names or [])
         as_of = loan_date if isinstance(loan_date, date) else (parse_date(loan_date) or date.today())
         records = records_from_documents(documents) + records_from_reference_data(reference_data)
+        # [Sửa 20/10] BORROWER_NAMES trống → tự tìm tên KH vay trong hồ sơ vay vốn.
+        borrower_source = "khai báo trong notebook" if borrower_names else ""
+        if not borrower_names:
+            borrower_names, borrower_files = detect_borrowers(documents, records)
+            if borrower_names:
+                borrower_source = "tự nhận diện từ " + ", ".join(borrower_files)
         items = run_all_checks(
             records,
             as_of=as_of,
@@ -196,6 +203,7 @@ class CorpIncomeAnalysis:
         meta = {
             "as_of": as_of.strftime("%d/%m/%Y"),
             "borrower_names": borrower_names,
+            "borrower_source": borrower_source,
             "template": template_source,
         }
         documents_view = [

@@ -262,5 +262,26 @@ class DkkdReadingTest(unittest.TestCase):
         self.assertEqual(fill_from_text({}, "Đăng ký lần đầu: 12/05/2015")["establishment_date"], "12/05/2015")
 
 
+class BorrowerDetectionTest(unittest.TestCase):
+    """[Sửa 20/10] BORROWER_NAMES trống → tìm tên thành viên góp vốn trong hồ sơ vay vốn."""
+
+    def test_borrower_found_in_loan_request(self):
+        from types import SimpleNamespace as Doc
+        from src.agents.calculator.borrowers import detect_borrowers
+        records = [{"pass": "shareholders", "data": {"members": [
+            {"name": "NGUYEN DUY XUAT", "member_type": "ca_nhan"},
+            {"name": "LE NGOC HOA", "member_type": "ca_nhan"},
+            {"name": "Công ty ABC", "member_type": "phap_nhan"}]}}]
+        docs = [
+            Doc(declared_group="ho_so_vay_von", filename="De nghi vay.pdf",
+                content="GIẤY ĐỀ NGHỊ VAY VỐN\nHọ và tên: Ông Nguyễn Duy Xuất, CCCD 0010..."),
+            Doc(declared_group="ho_so_soan_thao_noi_bo", filename="To trinh.docx",
+                content="Thành viên: Nguyễn Duy Xuất, Lê Ngọc Hoa"),
+        ]
+        self.assertEqual(detect_borrowers(docs, records), (["NGUYEN DUY XUAT"], ["De nghi vay.pdf"]))
+        self.assertEqual(detect_borrowers(docs[1:], records)[0], ["NGUYEN DUY XUAT", "LE NGOC HOA"])
+        self.assertEqual(detect_borrowers([], records), ([], []))
+
+
 if __name__ == "__main__":
     unittest.main()

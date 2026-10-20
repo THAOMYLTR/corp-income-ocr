@@ -269,9 +269,12 @@ def build_appendix_context(result: dict[str, Any], records: list[dict[str, Any]]
         is_rep = any(norm_person(n) in reps for n in borrower_names)
         lines.append(f"KH cá nhân vay vốn {', '.join(borrower_names)} nắm giữ "
                      + (f"{pct:g}% vốn góp".replace(".", ",") if pct is not None else "tỷ lệ vốn góp chưa xác định")
-                     + f"; {'là' if is_rep else 'không phải là'} người đại diện theo pháp luật của doanh nghiệp.")
+                     + f"; {'là' if is_rep else 'không phải là'} người đại diện theo pháp luật của doanh nghiệp"
+                     + (f" ({result['meta']['borrower_source']})." if result["meta"].get("borrower_source") else "."))
     else:
-        lines.append("Chưa khai báo KH cá nhân vay vốn (BORROWER_NAMES) — chưa xác định tỷ lệ góp vốn.")
+        # [Sửa 20/10] chỉ còn hiện khi hồ sơ vay vốn không nêu tên thành viên nào
+        lines.append("Chưa xác định được KH cá nhân vay vốn: hồ sơ vay vốn (giấy đề nghị vay / tờ trình) không nêu tên "
+                     "thành viên góp vốn hoặc người đại diện nào — kiểm tra lại hồ sơ, hoặc khai báo BORROWER_NAMES.")
     warn = [codes[c]["message"] for c in LEGAL_MISMATCH_CODES if c in codes]
     warn += [codes[c]["message"] for c in ("status_not_active", "status_unknown") if c in codes]
     warn += [f["message"] for f in items[2]["findings"]
