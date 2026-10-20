@@ -33,6 +33,13 @@ DEFAULT_TESSERACT_CMD = (
 )
 # pypdfium2 bundles the pdfium binary, so no system poppler install is required.
 PDF_POINTS_PER_INCH = 72.0
+# [Sửa 20/10] Tesseract tự mở nhiều luồng OpenMP cho MỖI trang; khi đã OCR nhiều trang /
+# nhiều file song song, các luồng đó tranh CPU và chậm hơn hẳn. 1 luồng / tiến trình là
+# cấu hình Tesseract khuyên dùng khi chạy song song. Đặt OMP_THREAD_LIMIT trong env để đổi.
+os.environ.setdefault("OMP_THREAD_LIMIT", "1")
+# [Sửa 20/10] Ảnh chụp điện thoại (4000x3000+) được thu nhỏ về cạnh dài tối đa này trước
+# khi lọc nhiễu + OCR — đủ cho chữ trên giấy A4 (~300 dpi), nhanh hơn nhiều lần.
+MAX_IMAGE_SIDE = int(os.getenv("OCR_MAX_IMAGE_SIDE", "3500"))
 
 
 def _ocr_config() -> dict[str, object]:
@@ -640,6 +647,8 @@ def ocr_image(image_path: str, timeout_seconds: float | None = None) -> str:
     with Image.open(image_path) as source:
         for index, frame in enumerate(ImageSequence.Iterator(source), start=1):
             page = ImageOps.exif_transpose(frame.convert("RGB"))
+            if max(page.size) > MAX_IMAGE_SIDE:
+                page.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
             page_texts.append(
                 _ocr_page(page, settings, lang, tess_config, timeout, index)
             )

@@ -15,6 +15,7 @@ to that JSON in code.
 
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -590,101 +591,132 @@ class Supervisor:
 
     # ── Reading and classifying the uploaded documents ────────────────────
 
+    # [Sửa 20/10] Files are read + classified, and extraction passes run, several at a
+    # time instead of one by one (49 files took 34 min). OCR and LLM calls wait on other
+    # processes / the network, so threads overlap them. Order of documents and of the step
+    # log is kept. FILE_WORKERS: files read at once (each file also OCRs its pages in
+    # parallel, so keep it small). LLM_WORKERS: LLM calls at once (raise only if the
+    # serving endpoint does not answer 429 "rate limit").
+    @staticmethod
+    def _workers(env: str, default: int) -> int:
+        try:
+            return max(1, int(os.getenv(env, str(default))))
+        except ValueError:
+            return default
+
     def _prepare_documents(
         self,
         files: list[str],
         steps: list[str],
         loan_program: str = "",
     ) -> list[ClassifiedDocument]:
-        documents = []
+        unique: list[tuple[str, str]] = []
         seen_hashes: set[str] = set()
         for file_path in files:
-            filename = Path(file_path).name
             file_hash = compute_file_hash(file_path)
             if file_hash in seen_hashes:
-                steps.append(f"Skipped duplicate document: {filename}")
+                steps.append(f"Skipped duplicate document: {Path(file_path).name}")
                 continue
             seen_hashes.add(file_hash)
-            try:
-                steps.append(f"Extracting document content: {filename}")
-                content, read_method = extract_document_text_with_method(
-                    file_path,
-                    ocr_timeout_seconds=float(os.getenv("OCR_TIMEOUT_SECONDS", "120")),
-                )
-                extraction_status = "success"
-                extraction_error = ""
-            except Exception as exc:
-                content = f"[Document text extraction failed for {filename}: {exc}]"
-                read_method = ""
-                extraction_status = "failed"
-                extraction_error = f"{type(exc).__name__}: {exc}"
-
-            content = truncate_text(content, self.config.max_chars_per_document)
-            declared_group = group_from_path(file_path)
-            classification = self._classify_document(filename, content, declared_group)
-            document_type = classification.get("document_type", "")
-            if declared_group:
-                owner_type = self._cross_box_owner(filename, content, declared_group)
-                if owner_type:
-                    steps.append(
-                        f"Possible wrong upload box: {filename} was put in "
-                        f"'{declared_group}' but its content matches "
-                        f"'{owner_type.short_label}' from '{owner_type.group_id}'."
-                    )
-            agent_relevance = agent_relevance_for_type(document_type, loan_program or None)
-            relevant_agents = sorted(agent_relevance)
-            matched = get_type(document_type)
-            flags = {
-                "is_legal_basic": is_legal_basic_type(document_type),
-                "is_shareholders": is_shareholders_type(document_type),
-                "is_legal_rep": is_legal_rep_type(document_type),
-                "is_liabilities": is_liabilities_type(document_type),
-                "is_financial": is_financial_type(document_type),
-                "is_vat": is_vat_type(document_type),
-                "is_cic": is_cic_type(document_type),
-                "is_plan": is_plan_type(document_type),
-            }
-            tags = [p.tag for p in EXTRACTION_PASSES if flags[p.flag_attr]]
-            steps.append(
-                f"Classified document: {filename} -> "
-                + (f"{document_type} " if document_type else "(no type matched) ")
-                + f"(read by {read_method or '—'})"
-                + (f" [{', '.join(tags)}]" if tags else "")
-            )
-            documents.append(
-                ClassifiedDocument(
-                    path=file_path,
-                    filename=filename,
-                    content=content,
-                    agent=primary_agent_for_type(document_type) or "GENERAL_CONTEXT",
-                    reasoning=classification.get("reasoning", ""),
-                    confidence=float(classification.get("confidence", 0.0)),
-                    file_hash=file_hash,
-                    source_description=(
-                        str(classification.get("description", "")).strip()
-                        or (matched.short_label if matched else "")
-                    ),
-                    declared_group=declared_group,
-                    read_method=read_method,
-                    extraction_status=extraction_status,
-                    extraction_error=extraction_error,
-                    classifier_error_type=classification.get("classifier_error_type", ""),
-                    classifier_error=classification.get("classifier_error", ""),
-                    document_type=document_type,
-                    document_group=matched.group_id if matched else "",
-                    source=source_for_type(document_type),
-                    type_scores=classification.get("scores", {}),
-                    agent_relevance=agent_relevance,
-                    loan_program=loan_program,
-                    agent_scores={
-                        name: self.RELEVANCE_SCORE[level]
-                        for name, level in agent_relevance.items()
-                    },
-                    relevant_agents=relevant_agents,
-                    **flags,
-                )
-            )
+            unique.append((file_path, file_hash))
+        with ThreadPoolExecutor(max_workers=self._workers("FILE_WORKERS", 3)) as pool:
+            results = list(pool.map(lambda item: self._prepare_one(*item, loan_program), unique))
+        documents = []
+        for document, file_steps in results:
+            steps.extend(file_steps)
+            documents.append(document)
         return documents
+
+    def _prepare_one(
+        self,
+        file_path: str,
+        file_hash: str,
+        loan_program: str = "",
+    ) -> tuple[ClassifiedDocument, list[str]]:
+        """Read, classify and flag one file; its own step lines (merged in order by the caller)."""
+
+        steps: list[str] = []
+        filename = Path(file_path).name
+        try:
+            steps.append(f"Extracting document content: {filename}")
+            content, read_method = extract_document_text_with_method(
+                file_path,
+                ocr_timeout_seconds=float(os.getenv("OCR_TIMEOUT_SECONDS", "120")),
+            )
+            extraction_status = "success"
+            extraction_error = ""
+        except Exception as exc:
+            content = f"[Document text extraction failed for {filename}: {exc}]"
+            read_method = ""
+            extraction_status = "failed"
+            extraction_error = f"{type(exc).__name__}: {exc}"
+
+        content = truncate_text(content, self.config.max_chars_per_document)
+        declared_group = group_from_path(file_path)
+        classification = self._classify_document(filename, content, declared_group)
+        document_type = classification.get("document_type", "")
+        if declared_group:
+            owner_type = self._cross_box_owner(filename, content, declared_group)
+            if owner_type:
+                steps.append(
+                    f"Possible wrong upload box: {filename} was put in "
+                    f"'{declared_group}' but its content matches "
+                    f"'{owner_type.short_label}' from '{owner_type.group_id}'."
+                )
+        agent_relevance = agent_relevance_for_type(document_type, loan_program or None)
+        relevant_agents = sorted(agent_relevance)
+        matched = get_type(document_type)
+        flags = {
+            "is_legal_basic": is_legal_basic_type(document_type),
+            "is_shareholders": is_shareholders_type(document_type),
+            "is_legal_rep": is_legal_rep_type(document_type),
+            "is_liabilities": is_liabilities_type(document_type),
+            "is_financial": is_financial_type(document_type),
+            "is_vat": is_vat_type(document_type),
+            "is_cic": is_cic_type(document_type),
+            "is_plan": is_plan_type(document_type),
+        }
+        tags = [p.tag for p in EXTRACTION_PASSES if flags[p.flag_attr]]
+        steps.append(
+            f"Classified document: {filename} -> "
+            + (f"{document_type} " if document_type else "(no type matched) ")
+            + f"(read by {read_method or '—'})"
+            + (f" [{', '.join(tags)}]" if tags else "")
+        )
+        document = (
+            ClassifiedDocument(
+                path=file_path,
+                filename=filename,
+                content=content,
+                agent=primary_agent_for_type(document_type) or "GENERAL_CONTEXT",
+                reasoning=classification.get("reasoning", ""),
+                confidence=float(classification.get("confidence", 0.0)),
+                file_hash=file_hash,
+                source_description=(
+                    str(classification.get("description", "")).strip()
+                    or (matched.short_label if matched else "")
+                ),
+                declared_group=declared_group,
+                read_method=read_method,
+                extraction_status=extraction_status,
+                extraction_error=extraction_error,
+                classifier_error_type=classification.get("classifier_error_type", ""),
+                classifier_error=classification.get("classifier_error", ""),
+                document_type=document_type,
+                document_group=matched.group_id if matched else "",
+                source=source_for_type(document_type),
+                type_scores=classification.get("scores", {}),
+                agent_relevance=agent_relevance,
+                loan_program=loan_program,
+                agent_scores={
+                    name: self.RELEVANCE_SCORE[level]
+                    for name, level in agent_relevance.items()
+                },
+                relevant_agents=relevant_agents,
+                **flags,
+            )
+        )
+        return document, steps
 
     @staticmethod
     def _document_sample(content: str, limit: int = 2_400) -> str:
@@ -841,8 +873,10 @@ class Supervisor:
                     f"{budget.limit_hit} reached."
                 )
                 return
-        for doc in targets:
-            result, error = pass_.extract(chain, doc.filename, doc.content, doc.path)
+        with ThreadPoolExecutor(max_workers=self._workers("LLM_WORKERS", 4)) as pool:
+            answers = list(pool.map(
+                lambda doc: pass_.extract(chain, doc.filename, doc.content, doc.path), targets))
+        for doc, (result, error) in zip(targets, answers):
             setattr(doc, pass_.result_attr, result)
             setattr(doc, pass_.error_attr, error)
             steps.append(
