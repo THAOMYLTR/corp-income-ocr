@@ -62,8 +62,14 @@ def compute(records: list[dict[str, Any]], as_of: date, revenue_prev_year: float
             warnings.append(f"Bản tin {data.get('report_type') or 'CIC'} tra cứu ngày {when:%d/%m/%Y}, quá 1 tháng "
                             f"tính đến {as_of:%d/%m/%Y} — đề nghị lấy lại dữ liệu CIC")
 
-    s10a = [r for r in cic if str(r["data"].get("report_type", "")).upper() != "R20"]
-    r20 = [r for r in cic if str(r["data"].get("report_type", "")).upper() == "R20"]
+    # [Sửa 20/10] Một file PDF thường gộp cả S10A lẫn R20, LLM chỉ ghi một report_type →
+    # R20 bị báo "chưa có". Bản tin nào có danh sách TSBĐ (collaterals) cũng tính là có R20;
+    # bản tin nào có dư nợ theo TCTD (lenders) cũng tính là có S10A.
+    def kind(r: dict) -> str:
+        return str(r["data"].get("report_type") or "").upper()
+
+    s10a = [r for r in cic if "R20" not in kind(r) or r["data"].get("lenders")]
+    r20 = [r for r in cic if "R20" in kind(r) or r["data"].get("collaterals")]
     if not s10a:
         warnings.append("Chưa có bản tin S10A (dư nợ, nợ cần chú ý, nợ xấu)")
     if not r20:
